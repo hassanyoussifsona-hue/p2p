@@ -138,7 +138,7 @@ const ContinuousPageItem: React.FC<PageItemProps> = ({
         {pageNumber === 1 && (
           <a
             id="continuous-cert-qr-hotspot"
-            href="https://ais-pre-y2y6biegcw4k5ltwki7tnc-171172990740.europe-west2.run.app"
+            href={typeof window !== 'undefined' ? window.location.origin.replace('ais-dev-', 'ais-pre-') : '#'}
             target="_blank"
             rel="noopener noreferrer"
             title="رمز الاستجابة السريعة (QR Code) لبوابة التحقق الرسمية - انقر لفتح أو فحص الرابط"

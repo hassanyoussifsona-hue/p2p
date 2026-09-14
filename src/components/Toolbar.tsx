@@ -20,6 +20,8 @@ import {
   ImagePlus,
   RotateCcw,
   QrCode,
+  FileSignature,
+  Sparkles,
 } from 'lucide-react';
 import { FitMode, ViewMode, Language } from '../types';
 
@@ -45,6 +47,9 @@ interface ToolbarProps {
   onOpenSearchModal: () => void;
   onOpenSaveWebPageModal?: () => void;
   onOpenQrModal?: () => void;
+  onOpenFontFidelityModal?: () => void;
+  onToggleFidelityMode?: () => void;
+  isExactViewActive?: boolean;
   onUploadFile?: (file: File) => void;
   isCustomFileLoaded?: boolean;
   onResetDefault?: () => void;
@@ -71,6 +76,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onOpenSearchModal,
   onOpenSaveWebPageModal,
   onOpenQrModal,
+  onOpenFontFidelityModal,
+  onToggleFidelityMode,
+  isExactViewActive = true,
   onUploadFile,
   isCustomFileLoaded,
   onResetDefault,
@@ -316,6 +324,44 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               title={isAr ? 'استعادة المستند الافتراضي الأصلي' : 'Restore Default Document'}
             >
               <RotateCcw className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Font & Signature Fidelity Guide Button */}
+          {onOpenFontFidelityModal && (
+            <button
+              id="btn-toolbar-font-fidelity"
+              onClick={onOpenFontFidelityModal}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-[#c5a059] border border-[#c5a059]/40 font-semibold text-xs transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              title={isAr ? 'دليل ثبات الخطوط والتوقيع وتوافق iOS' : 'Font Fidelity & Signature Guide'}
+            >
+              <FileSignature className="w-3.5 h-3.5 text-[#c5a059]" />
+              <span className="hidden xl:inline">{isAr ? 'ثبات الخطوط والتوقيع' : 'Fidelity'}</span>
+            </button>
+          )}
+
+          {/* Exact View vs Vector Toggle Button */}
+          {onToggleFidelityMode && (
+            <button
+              id="btn-toggle-fidelity-mode"
+              onClick={onToggleFidelityMode}
+              className={`px-2.5 py-1.5 rounded-lg font-semibold text-xs transition flex items-center gap-1.5 shadow-sm cursor-pointer ${
+                isExactViewActive
+                  ? 'bg-[#003865] text-white border border-[#c5a059]/60'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+              }`}
+              title={
+                isExactViewActive
+                  ? isAr ? 'المطابقة الأصلية 100% (ثبات تام) - انقر للتحويل إلى PDF' : '100% Exact Master View'
+                  : isAr ? 'وضع PDF المتجهي - انقر للتحويل إلى المطابقة التامة' : 'Vector PDF View'
+              }
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${isExactViewActive ? 'text-[#c5a059]' : 'text-slate-400'}`} />
+              <span className="hidden 2xl:inline">
+                {isExactViewActive
+                  ? isAr ? 'المطابقة 100%' : 'Exact 100%'
+                  : isAr ? 'عرض PDF' : 'PDF Mode'}
+              </span>
             </button>
           )}
 

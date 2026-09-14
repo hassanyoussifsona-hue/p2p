@@ -214,92 +214,141 @@ export const PdfCanvas: React.FC<PdfCanvasProps> = ({
     };
   }, [pdfDoc, imageSrc, currentPage, scale, rotation]);
 
+  // Touch pinch-to-zoom and double-tap gestures for mobile & iOS
+  const touchStartDistRef = useRef<number | null>(null);
+  const touchStartScaleRef = useRef<number>(scale);
+  const lastTapTimeRef = useRef<number>(0);
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStartDistRef.current = dist;
+      touchStartScaleRef.current = scale;
+    } else if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - lastTapTimeRef.current < 300) {
+        if (scale > 1.1) {
+          onScaleCalculated(0.85);
+        } else {
+          onScaleCalculated(1.35);
+        }
+        lastTapTimeRef.current = 0;
+      } else {
+        lastTapTimeRef.current = now;
+      }
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const factor = dist / touchStartDistRef.current;
+      const newScale = Math.min(3.8, Math.max(0.35, touchStartScaleRef.current * factor));
+      onScaleCalculated(Number(newScale.toFixed(2)));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartDistRef.current = null;
+  };
+
   return (
     <main
       ref={containerRef}
       id="pdf-canvas-wrapper"
-      className="relative flex-1 w-full h-full overflow-auto custom-scrollbar ios-smooth-scroll flex items-center justify-center p-4 sm:p-8 bg-neutral-950/90 select-none focus:outline-none"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className="relative flex-1 w-full h-full overflow-auto custom-scrollbar ios-smooth-scroll flex items-start sm:items-center justify-center p-2 sm:p-8 bg-neutral-950/90 select-none focus:outline-none"
       tabIndex={0}
     >
-      {/* Centered Document Sheet */}
-      <div
-        id="pdf-page-sheet"
-        className="relative transition-all duration-150 ease-out my-auto mx-auto group pdf-canvas-container"
-        style={{
-          width: pageSize ? `${pageSize.width}px` : 'auto',
-          height: pageSize ? `${pageSize.height}px` : 'auto',
-          transform: rotation ? `rotate(${rotation}deg)` : undefined,
-        }}
-      >
-        {imageSrc ? (
-          <div className="relative w-full h-full">
-            <img
-              id="pdf-main-image"
-              src={imageSrc}
-              alt={imageName}
-              referrerPolicy="no-referrer"
-              className="w-full h-full object-contain bg-white shadow-[0_12px_40px_rgba(0,0,0,0.6)] rounded-sm border border-neutral-800 block select-none pointer-events-auto"
-            />
-          </div>
-        ) : (
-          /* Canvas element */
-          <canvas
-            ref={canvasRef}
-            id="pdf-main-canvas"
-            className="bg-white shadow-[0_12px_40px_rgba(0,0,0,0.6)] rounded-sm border border-neutral-800 transition-opacity block"
-          />
-        )}
-
-        {/* Interactive QR Code Hotspot (Links directly to the portal) - only if default image/cert */}
-        {imageSrc === '/44.jpg' && (
-          <a
-            id="pdf-cert-qr-hotspot"
-            href="https://ais-pre-y2y6biegcw4k5ltwki7tnc-171172990740.europe-west2.run.app"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="رمز الاستجابة السريعة (QR Code) لبوابة التحقق الرسمية - انقر لفتح أو نسخ الرابط"
-            className="absolute z-10 rounded-xs transition-all hover:ring-2 hover:ring-[#003865]/60 hover:bg-[#003865]/10 cursor-pointer"
-            style={{
-              left: '43.06%',
-              top: '53.99%',
-              width: '9.68%',
-              height: '6.84%',
-            }}
-          />
-        )}
-
-        {/* Subtle loading spinner overlay */}
-        {isRendering && (
-          <div className="absolute inset-0 bg-neutral-900/30 backdrop-blur-[1px] flex items-center justify-center rounded-sm transition-all pointer-events-none">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-900/90 text-neutral-200 text-xs shadow-lg border border-neutral-700">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
-              <span>جاري العرض...</span>
+      <div className="min-w-full min-h-full flex items-center justify-center py-2 sm:py-4">
+        {/* Centered Document Sheet */}
+        <div
+          id="pdf-page-sheet"
+          className="relative transition-all duration-150 ease-out my-auto mx-auto group pdf-canvas-container"
+          style={{
+            width: pageSize ? `${pageSize.width}px` : 'auto',
+            height: pageSize ? `${pageSize.height}px` : 'auto',
+            transform: rotation ? `rotate(${rotation}deg)` : undefined,
+          }}
+        >
+          {imageSrc ? (
+            <div className="relative w-full h-full">
+              <img
+                id="pdf-main-image"
+                src={imageSrc}
+                alt={imageName}
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-contain bg-white shadow-[0_12px_40px_rgba(0,0,0,0.6)] rounded-sm border border-neutral-800 block select-none pointer-events-auto"
+              />
             </div>
-          </div>
-        )}
+          ) : (
+            /* Canvas element */
+            <canvas
+              ref={canvasRef}
+              id="pdf-main-canvas"
+              className="bg-white shadow-[0_12px_40px_rgba(0,0,0,0.6)] rounded-sm border border-neutral-800 transition-opacity block"
+            />
+          )}
 
-        {/* Hover Quick Nav overlay arrows (Right & Left) */}
-        {currentPage > 1 && (
-          <button
-            id="btn-quick-prev-page"
-            onClick={onPrevPage}
-            className="absolute top-1/2 -translate-y-1/2 -right-12 opacity-0 group-hover:opacity-100 hover:scale-110 p-2.5 rounded-full bg-neutral-800/90 hover:bg-neutral-700 text-neutral-200 shadow-xl border border-neutral-700 transition hidden sm:flex items-center justify-center z-10"
-            title="الصفحة السابقة"
-          >
-            <ChevronRight className="w-5 h-5 rtl:rotate-0" />
-          </button>
-        )}
+          {/* Interactive QR Code Hotspot (Links directly to the portal) - only if default image/cert */}
+          {imageSrc === '/44.jpg' && (
+            <a
+              id="pdf-cert-qr-hotspot"
+              href={typeof window !== 'undefined' ? window.location.origin.replace('ais-dev-', 'ais-pre-') : '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="رمز الاستجابة السريعة (QR Code) لبوابة التحقق الرسمية - انقر لفتح أو نسخ الرابط"
+              className="absolute z-10 rounded-xs transition-all hover:ring-2 hover:ring-[#003865]/60 hover:bg-[#003865]/10 cursor-pointer"
+              style={{
+                left: '43.06%',
+                top: '53.99%',
+                width: '9.68%',
+                height: '6.84%',
+              }}
+            />
+          )}
 
-        {currentPage < totalPages && (
-          <button
-            id="btn-quick-next-page"
-            onClick={onNextPage}
-            className="absolute top-1/2 -translate-y-1/2 -left-12 opacity-0 group-hover:opacity-100 hover:scale-110 p-2.5 rounded-full bg-neutral-800/90 hover:bg-neutral-700 text-neutral-200 shadow-xl border border-neutral-700 transition hidden sm:flex items-center justify-center z-10"
-            title="الصفحة التالية"
-          >
-            <ChevronLeft className="w-5 h-5 rtl:rotate-0" />
-          </button>
-        )}
+          {/* Subtle loading spinner overlay */}
+          {isRendering && (
+            <div className="absolute inset-0 bg-neutral-900/30 backdrop-blur-[1px] flex items-center justify-center rounded-sm transition-all pointer-events-none">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-900/90 text-neutral-200 text-xs shadow-lg border border-neutral-700">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+                <span>جاري العرض...</span>
+              </div>
+            </div>
+          )}
+
+          {/* Hover Quick Nav overlay arrows (Right & Left) */}
+          {currentPage > 1 && (
+            <button
+              id="btn-quick-prev-page"
+              onClick={onPrevPage}
+              className="absolute top-1/2 -translate-y-1/2 -right-12 opacity-0 group-hover:opacity-100 hover:scale-110 p-2.5 rounded-full bg-neutral-800/90 hover:bg-neutral-700 text-neutral-200 shadow-xl border border-neutral-700 transition hidden sm:flex items-center justify-center z-10"
+              title="الصفحة السابقة"
+            >
+              <ChevronRight className="w-5 h-5 rtl:rotate-0" />
+            </button>
+          )}
+
+          {currentPage < totalPages && (
+            <button
+              id="btn-quick-next-page"
+              onClick={onNextPage}
+              className="absolute top-1/2 -translate-y-1/2 -left-12 opacity-0 group-hover:opacity-100 hover:scale-110 p-2.5 rounded-full bg-neutral-800/90 hover:bg-neutral-700 text-neutral-200 shadow-xl border border-neutral-700 transition hidden sm:flex items-center justify-center z-10"
+              title="الصفحة التالية"
+            >
+              <ChevronLeft className="w-5 h-5 rtl:rotate-0" />
+            </button>
+          )}
+        </div>
       </div>
     </main>
   );

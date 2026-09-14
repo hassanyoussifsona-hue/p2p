@@ -50,6 +50,7 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
 
   const [selectedTarget, setSelectedTarget] = useState<'current' | 'portal' | 'standalone' | 'pdf' | 'custom'>('current');
   const [customUrl, setCustomUrl] = useState<string>('');
+  const [isPublicIosFriendly, setIsPublicIosFriendly] = useState<boolean>(true);
   const [activeUrl, setActiveUrl] = useState<string>('');
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [isCopiedLink, setIsCopiedLink] = useState(false);
@@ -68,23 +69,30 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
     }
   }, []);
 
-  // Sync activeUrl when target or customUrl changes
+  // Sync activeUrl when target, customUrl, or isPublicIosFriendly changes
   useEffect(() => {
     const origin = getOrigin();
     const current = getLiveUrl();
+    let target = '';
 
     if (selectedTarget === 'current') {
-      setActiveUrl(current);
+      target = current;
     } else if (selectedTarget === 'portal') {
-      setActiveUrl(origin);
+      target = origin;
     } else if (selectedTarget === 'standalone') {
-      setActiveUrl(`${origin}/adib_certificate_standalone.html`);
+      target = `${origin}/adib_certificate_standalone.html`;
     } else if (selectedTarget === 'pdf') {
-      setActiveUrl(`${origin}/adib_certificate.pdf`);
+      target = `${origin}/adib_certificate.pdf`;
     } else if (selectedTarget === 'custom') {
-      setActiveUrl(customUrl || origin);
+      target = customUrl || origin;
     }
-  }, [selectedTarget, customUrl, isOpen]);
+
+    if (isPublicIosFriendly && target) {
+      target = target.replace('ais-dev-', 'ais-pre-');
+    }
+
+    setActiveUrl(target);
+  }, [selectedTarget, customUrl, isPublicIosFriendly, isOpen]);
 
   // Color scheme configs for QR code
   const colorConfigs = {
@@ -315,6 +323,42 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
                 <span className="truncate">{isAr ? 'رابط مخصص' : 'Custom URL'}</span>
               </button>
             </div>
+          </div>
+
+          {/* iOS Safari & Phone Direct Access Toggle & Status */}
+          <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-blue-950/40 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+            <div className="flex items-start sm:items-center gap-2 min-w-0">
+              <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 mt-0.5 sm:mt-0 shrink-0">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-white">
+                    {isAr ? 'توافق كامل مع أجهزة Apple iOS وآيفون (رابط عام مباشر)' : 'Full Apple iOS & iPhone Direct Access'}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold border border-emerald-500/30">
+                    {isPublicIosFriendly ? (isAr ? 'مُفعّل' : 'Active') : (isAr ? 'معطل' : 'Off')}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 mt-0.5">
+                  {isAr
+                    ? 'يمنع ظهور شاشة تسجيل الدخول عند مسح الباركود بكاميرا الآيفون ويفتح المستند مباشرة على متصفح Safari.'
+                    : 'Bypasses container login prompts when scanned by iPhone Camera or Safari.'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              id="btn-toggle-ios-friendly"
+              onClick={() => setIsPublicIosFriendly(!isPublicIosFriendly)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition shrink-0 ${
+                isPublicIosFriendly
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-400'
+              }`}
+            >
+              {isPublicIosFriendly ? (isAr ? 'رابط عام (iOS)' : 'Public (iOS)') : (isAr ? 'رابط المطور' : 'Dev URL')}
+            </button>
           </div>
 
           {/* In-App Page Link Display & Copy Bar */}

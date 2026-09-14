@@ -10,6 +10,7 @@ import { QuickPageSearch } from './components/QuickPageSearch';
 import { VerificationModal } from './components/VerificationModal';
 import { SaveWebPageModal } from './components/SaveWebPageModal';
 import { QrCodeModal } from './components/QrCodeModal';
+import { FontFidelityModal } from './components/FontFidelityModal';
 import { AdibFooter } from './components/AdibFooter';
 import { DocumentMeta, FitMode, ViewMode, Language, VerificationDetails } from './types';
 import {
@@ -57,6 +58,7 @@ export default function App() {
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [isSaveWebPageModalOpen, setIsSaveWebPageModalOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [isFontFidelityModalOpen, setIsFontFidelityModalOpen] = useState(false);
   const [isCustomFileLoaded, setIsCustomFileLoaded] = useState(false);
 
   // Document metadata & active raw data for downloading / printing
@@ -120,12 +122,19 @@ export default function App() {
     setError(null);
 
     try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const commonPdfConfig = {
+        cMapUrl: `${origin}/cmaps/`,
+        cMapPacked: true,
+        standardFontDataUrl: `${origin}/standard_fonts/`,
+        enableXfa: true,
+      };
+
       let loadingTask;
       if (typeof source === 'string') {
         loadingTask = pdfjsLib.getDocument({
           url: source,
-          cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/cmaps/',
-          cMapPacked: true,
+          ...commonPdfConfig,
         });
         // fetch buffer for download & print
         fetch(source)
@@ -138,8 +147,7 @@ export default function App() {
         rawPdfBufferRef.current = source;
         loadingTask = pdfjsLib.getDocument({
           data: source,
-          cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/cmaps/',
-          cMapPacked: true,
+          ...commonPdfConfig,
         });
       }
 
@@ -546,6 +554,16 @@ export default function App() {
         onOpenSearchModal={() => setIsSearchOpen(true)}
         onOpenSaveWebPageModal={() => setIsSaveWebPageModalOpen(true)}
         onOpenQrModal={() => setIsQrModalOpen(true)}
+        onOpenFontFidelityModal={() => setIsFontFidelityModalOpen(true)}
+        onToggleFidelityMode={() => {
+          if (imageSrc) {
+            setImageSrc(null);
+            loadPdf('/adib_certificate.pdf');
+          } else {
+            setImageSrc('/44.jpg');
+          }
+        }}
+        isExactViewActive={Boolean(imageSrc)}
         onUploadFile={handleFileSelect}
         isCustomFileLoaded={isCustomFileLoaded}
         onResetDefault={handleResetDefault}
@@ -705,6 +723,19 @@ export default function App() {
         isOpen={isQrModalOpen}
         onClose={() => setIsQrModalOpen(false)}
         lang={lang}
+      />
+
+      {/* Font & Signature Fidelity & iOS Guide Modal */}
+      <FontFidelityModal
+        isOpen={isFontFidelityModalOpen}
+        onClose={() => setIsFontFidelityModalOpen(false)}
+        lang={lang}
+        onSelectExactView={() => setImageSrc('/44.jpg')}
+        onSelectVectorPdf={() => {
+          setImageSrc(null);
+          loadPdf('/adib_certificate.pdf');
+        }}
+        isExactViewActive={Boolean(imageSrc)}
       />
     </div>
   );
