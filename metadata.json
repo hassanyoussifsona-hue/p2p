@@ -1,0 +1,8 @@
+{
+  "name": "Remix Remix PDF Viewer",
+  "description": "بوابة التحقق من المستندات الرسمية وعارض ملفات PDF تفاعلي وعالي الدقة مع أدوات التكبير والتنقل والطباعة والتحميل.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
