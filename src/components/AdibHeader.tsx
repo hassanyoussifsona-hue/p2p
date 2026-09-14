@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, Globe, CheckCircle2, Lock, FileCheck, Search, MapPin, QrCode, Link2 } from 'lucide-react';
+import { Info, Globe, CheckCircle2, Lock, FileCheck, Search, MapPin, QrCode, Link2, EyeOff, SlidersHorizontal } from 'lucide-react';
 import { VerificationDetails, Language } from '../types';
 
 interface AdibHeaderProps {
@@ -8,6 +8,8 @@ interface AdibHeaderProps {
   verification: VerificationDetails;
   onOpenDetailsModal: () => void;
   onOpenQrModal: () => void;
+  isToolbarVisible?: boolean;
+  onToggleToolbar?: () => void;
 }
 
 export const AdibHeader: React.FC<AdibHeaderProps> = ({
@@ -16,6 +18,8 @@ export const AdibHeader: React.FC<AdibHeaderProps> = ({
   verification,
   onOpenDetailsModal,
   onOpenQrModal,
+  isToolbarVisible = true,
+  onToggleToolbar,
 }) => {
   const isAr = lang === 'ar';
 
@@ -110,6 +114,36 @@ export const AdibHeader: React.FC<AdibHeaderProps> = ({
               {isAr ? 'تفاصيل الوثيقة' : 'Certificate Details'}
             </span>
           </button>
+
+          {/* Toggle Toolbar Button (Hide/Show) */}
+          {onToggleToolbar && (
+            <button
+              id="btn-adib-toggle-toolbar"
+              onClick={onToggleToolbar}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
+                isToolbarVisible
+                  ? 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+                  : 'bg-gradient-to-r from-amber-400 to-[#c5a059] text-slate-950 border-[#c5a059] shadow-md ring-2 ring-amber-300/40'
+              }`}
+              title={
+                isToolbarVisible
+                  ? isAr ? 'إخفاء شريط أدوات المستند (لتكبير مساحة القراءة)' : 'Hide document toolbar'
+                  : isAr ? 'إظهار شريط أدوات المستند' : 'Show document toolbar'
+              }
+            >
+              {isToolbarVisible ? (
+                <>
+                  <EyeOff className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                  <span className="hidden sm:inline">{isAr ? 'إخفاء الأدوات' : 'Hide Tools'}</span>
+                </>
+              ) : (
+                <>
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-slate-950 shrink-0" />
+                  <span className="font-bold">{isAr ? 'إظهار الأدوات' : 'Show Tools'}</span>
+                </>
+              )}
+            </button>
+          )}
 
           {/* Page Link & QR Code Modal Trigger */}
           <button

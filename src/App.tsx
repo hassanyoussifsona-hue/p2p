@@ -13,6 +13,7 @@ import { QrCodeModal } from './components/QrCodeModal';
 import { FontFidelityModal } from './components/FontFidelityModal';
 import { AdibFooter } from './components/AdibFooter';
 import { DocumentMeta, FitMode, ViewMode, Language, VerificationDetails } from './types';
+import { downloadImageAsPdf } from './lib/pdfExport';
 import {
   saveCustomPdf,
   getCustomPdf,
@@ -21,7 +22,7 @@ import {
   getCustomImage,
   clearCustomImage,
 } from './lib/pdfStorage';
-import { FileUp, AlertCircle, RefreshCw, BookOpen, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { FileUp, AlertCircle, RefreshCw, BookOpen, ShieldCheck, CheckCircle2, SlidersHorizontal, Eye } from 'lucide-react';
 
 export default function App() {
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
@@ -38,6 +39,9 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Toolbar visibility: restored by default, with intuitive multi-mode toggle
+  const [isToolbarVisible, setIsToolbarVisible] = useState(true);
 
   // Language state (default Arabic, can toggle to English)
   const [lang, setLang] = useState<Language>('ar');
@@ -300,6 +304,8 @@ export default function App() {
         setIsSearchOpen(true);
       } else if (e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.altKey && !e.metaKey) {
         handleToggleFullscreen();
+      } else if ((e.key.toLowerCase() === 't' || e.key.toLowerCase() === 'h') && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        setIsToolbarVisible((prev) => !prev);
       }
     };
 
@@ -461,16 +467,55 @@ export default function App() {
     window.print();
   };
 
+  const handleToggleToolbar = useCallback(() => {
+    setIsToolbarVisible((prev) => {
+      const next = !prev;
+      setToastMessage(
+        next
+          ? (lang === 'ar' ? 'تمت استعادة شريط الأدوات' : 'Toolbar restored')
+          : (lang === 'ar' ? 'تم إخفاء شريط الأدوات مؤقتاً (اضغط على "إظهار الأدوات" أو T للإعادة)' : 'Toolbar hidden (Click "Show Tools" or press T)')
+      );
+      return next;
+    });
+  }, [lang]);
+
   const handleDownload = async () => {
-    // If viewing an image, download the image directly
+    // If viewing an image (default or custom), export and download as authentic PDF
     if (imageSrc && !pdfDoc) {
-      const a = document.createElement('a');
-      a.href = imageSrc;
-      a.download = documentMeta.fileName || 'ADIB_Document.jpg';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      return;
+      try {
+        setToastMessage(lang === 'ar' ? 'جاري تجهيز المستند وتحميله بصيغة PDF...' : 'Preparing PDF download...');
+        
+        // If default official certificate image
+        if (imageSrc === '/44.jpg') {
+          try {
+            const res = await fetch('/Mohamed_Abdulla_Verfication.pdf');
+            if (res.ok) {
+              const buffer = await res.arrayBuffer();
+              const blob = new Blob([buffer], { type: 'application/pdf' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'ADIB_No_Liability_Certificate.pdf';
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              setTimeout(() => URL.revokeObjectURL(url), 3000);
+              setToastMessage(lang === 'ar' ? 'تم تحميل الشهادة بصيغة PDF بنجاح' : 'Certificate PDF downloaded successfully');
+              return;
+            }
+          } catch {
+            // Fallback to pdf-lib dynamic export
+          }
+        }
+
+        // Universal high-quality image-to-PDF generation
+        await downloadImageAsPdf(imageSrc, documentMeta.fileName || 'ADIB_No_Liability_Certificate.pdf', documentMeta.title);
+        setToastMessage(lang === 'ar' ? 'تم تحميل المستند بصيغة PDF بنجاح' : 'Document PDF downloaded successfully');
+        return;
+      } catch (err) {
+        console.error('PDF export error:', err);
+        setToastMessage(lang === 'ar' ? 'حدث خطأ أثناء تحميل PDF' : 'Error generating PDF');
+      }
     }
 
     // If PDF
@@ -490,6 +535,7 @@ export default function App() {
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 5000);
+      setToastMessage(lang === 'ar' ? 'تم تحميل ملف PDF بنجاح' : 'PDF downloaded successfully');
     } catch {
       const a = document.createElement('a');
       a.href = '/adib_certificate.pdf';
@@ -529,48 +575,70 @@ export default function App() {
         verification={verification}
         onOpenDetailsModal={() => setIsVerificationModalOpen(true)}
         onOpenQrModal={() => setIsQrModalOpen(true)}
+        isToolbarVisible={isToolbarVisible}
+        onToggleToolbar={handleToggleToolbar}
       />
 
-      {/* PDF Action Toolbar */}
-      <Toolbar
-        currentPage={currentPage}
-        totalPages={totalPages}
-        scale={scale}
-        rotation={rotation}
-        viewMode={viewMode}
-        fitMode={fitMode}
-        isFullscreen={isFullscreen}
-        isSidebarOpen={isSidebarOpen}
-        documentTitle={documentMeta.title}
-        lang={lang}
-        onPageChange={(page) => setCurrentPage(page)}
-        onZoomChange={handleZoomChange}
-        onRotateChange={handleRotateChange}
-        onViewModeToggle={() => setViewMode((prev) => (prev === 'single' ? 'continuous' : 'single'))}
-        onFullscreenToggle={handleToggleFullscreen}
-        onSidebarToggle={() => setIsSidebarOpen((prev) => !prev)}
-        onPrint={handlePrint}
-        onDownload={handleDownload}
-        onOpenSearchModal={() => setIsSearchOpen(true)}
-        onOpenSaveWebPageModal={() => setIsSaveWebPageModalOpen(true)}
-        onOpenQrModal={() => setIsQrModalOpen(true)}
-        onOpenFontFidelityModal={() => setIsFontFidelityModalOpen(true)}
-        onToggleFidelityMode={() => {
-          if (imageSrc) {
-            setImageSrc(null);
-            loadPdf('/adib_certificate.pdf');
-          } else {
-            setImageSrc('/44.jpg');
-          }
-        }}
-        isExactViewActive={Boolean(imageSrc)}
-        onUploadFile={handleFileSelect}
-        isCustomFileLoaded={isCustomFileLoaded}
-        onResetDefault={handleResetDefault}
-      />
+      {/* Collapsible Document Toolbar */}
+      {isToolbarVisible && (
+        <div id="active-toolbar-container" className="relative transition-all duration-200">
+          <Toolbar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            scale={scale}
+            rotation={rotation}
+            viewMode={viewMode}
+            fitMode={fitMode}
+            isFullscreen={isFullscreen}
+            isSidebarOpen={isSidebarOpen}
+            documentTitle={documentMeta.title}
+            lang={lang}
+            onPageChange={(page) => setCurrentPage(page)}
+            onZoomChange={handleZoomChange}
+            onRotateChange={handleRotateChange}
+            onViewModeToggle={() => setViewMode((prev) => (prev === 'single' ? 'continuous' : 'single'))}
+            onFullscreenToggle={handleToggleFullscreen}
+            onSidebarToggle={() => setIsSidebarOpen((prev) => !prev)}
+            onPrint={handlePrint}
+            onDownload={handleDownload}
+            onOpenSearchModal={() => setIsSearchOpen(true)}
+            onOpenSaveWebPageModal={() => setIsSaveWebPageModalOpen(true)}
+            onOpenQrModal={() => setIsQrModalOpen(true)}
+            onOpenFontFidelityModal={() => setIsFontFidelityModalOpen(true)}
+            onToggleFidelityMode={() => {
+              if (imageSrc) {
+                setImageSrc(null);
+                loadPdf('/adib_certificate.pdf');
+              } else {
+                setImageSrc('/44.jpg');
+              }
+            }}
+            isExactViewActive={Boolean(imageSrc)}
+            onUploadFile={handleFileSelect}
+            isCustomFileLoaded={isCustomFileLoaded}
+            onResetDefault={handleResetDefault}
+            onHideToolbar={handleToggleToolbar}
+          />
+        </div>
+      )}
 
       {/* Main Center Stage: Sidebar + PDF Centered View */}
       <main id="pdf-workspace" className="relative flex-1 flex flex-row overflow-hidden w-full bg-[#0b1120]">
+        {/* Floating Quick Restore Pill when toolbar is hidden */}
+        {!isToolbarVisible && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 pointer-events-auto select-none animate-in fade-in slide-in-from-top-2 duration-200">
+            <button
+              id="btn-floating-show-toolbar"
+              onClick={handleToggleToolbar}
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/95 hover:bg-[#003865] text-white border border-[#c5a059] shadow-2xl text-xs font-bold backdrop-blur-md transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer ring-2 ring-black/40"
+              title={lang === 'ar' ? 'إظهار شريط أدوات المستند (اختصار: T)' : 'Show document toolbar (Shortcut: T)'}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-[#c5a059]" />
+              <span>{lang === 'ar' ? 'إظهار شريط الأدوات' : 'Show Toolbar'}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/20 text-slate-200 font-mono font-normal">T</span>
+            </button>
+          </div>
+        )}
         {/* Thumbnails Sidebar */}
         <ThumbnailsSidebar
           pdfDoc={pdfDoc}

@@ -22,6 +22,7 @@ import {
   QrCode,
   FileSignature,
   Sparkles,
+  EyeOff,
 } from 'lucide-react';
 import { FitMode, ViewMode, Language } from '../types';
 
@@ -53,6 +54,7 @@ interface ToolbarProps {
   onUploadFile?: (file: File) => void;
   isCustomFileLoaded?: boolean;
   onResetDefault?: () => void;
+  onHideToolbar?: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -82,6 +84,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onUploadFile,
   isCustomFileLoaded,
   onResetDefault,
+  onHideToolbar,
 }) => {
   const isAr = lang === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -418,6 +421,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             >
               <Globe className="w-3.5 h-3.5 text-slate-950" />
               <span className="hidden md:inline">{isAr ? 'حفظ كصفحة ويب' : 'Save Web Page'}</span>
+            </button>
+          )}
+
+          {/* Hide Toolbar Button */}
+          {onHideToolbar && (
+            <button
+              id="btn-hide-toolbar"
+              onClick={onHideToolbar}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition flex items-center gap-1.5 cursor-pointer border border-slate-700/80 font-medium text-xs shadow-xs"
+              title={isAr ? 'إخفاء شريط الأدوات لتكبير مساحة العرض (يمكنك إظهاره من الزر العلوي أو بالضغط على حرف T)' : 'Hide toolbar to maximize view (Show via top button or press T)'}
+            >
+              <EyeOff className="w-3.5 h-3.5 text-slate-400" />
+              <span className="hidden xl:inline">{isAr ? 'إخفاء الأدوات' : 'Hide'}</span>
             </button>
           )}
         </div>
