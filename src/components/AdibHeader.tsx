@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, Globe, CheckCircle2, Lock, FileCheck, Search, MapPin } from 'lucide-react';
+import { Info, Globe, CheckCircle2, Lock, FileCheck, Search, MapPin, QrCode, Link2 } from 'lucide-react';
 import { VerificationDetails, Language } from '../types';
 
 interface AdibHeaderProps {
@@ -7,6 +7,7 @@ interface AdibHeaderProps {
   onLanguageToggle: () => void;
   verification: VerificationDetails;
   onOpenDetailsModal: () => void;
+  onOpenQrModal: () => void;
 }
 
 export const AdibHeader: React.FC<AdibHeaderProps> = ({
@@ -14,6 +15,7 @@ export const AdibHeader: React.FC<AdibHeaderProps> = ({
   onLanguageToggle,
   verification,
   onOpenDetailsModal,
+  onOpenQrModal,
 }) => {
   const isAr = lang === 'ar';
 
@@ -106,6 +108,22 @@ export const AdibHeader: React.FC<AdibHeaderProps> = ({
             <Info className="w-3.5 h-3.5 text-slate-300" />
             <span className="hidden sm:inline">
               {isAr ? 'تفاصيل الوثيقة' : 'Certificate Details'}
+            </span>
+          </button>
+
+          {/* Page Link & QR Code Modal Trigger */}
+          <button
+            id="btn-adib-page-qr-link"
+            onClick={onOpenQrModal}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#c5a059] to-amber-500 hover:from-amber-500 hover:to-[#c5a059] text-slate-950 font-bold text-xs shadow-sm transition cursor-pointer"
+            title={isAr ? 'الحصول على رابط الصفحة وتحويله إلى رمز QR' : 'Get page link and convert to QR code'}
+          >
+            <QrCode className="w-3.5 h-3.5 text-slate-950 shrink-0" />
+            <span className="hidden xs:inline">
+              {isAr ? 'رابط الصفحة ورمز QR' : 'Link & QR Code'}
+            </span>
+            <span className="xs:hidden">
+              {isAr ? 'رمز QR' : 'QR'}
             </span>
           </button>
 

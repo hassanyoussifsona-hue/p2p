@@ -19,6 +19,7 @@ import {
   Globe,
   ImagePlus,
   RotateCcw,
+  QrCode,
 } from 'lucide-react';
 import { FitMode, ViewMode, Language } from '../types';
 
@@ -43,6 +44,7 @@ interface ToolbarProps {
   onDownload: () => void;
   onOpenSearchModal: () => void;
   onOpenSaveWebPageModal?: () => void;
+  onOpenQrModal?: () => void;
   onUploadFile?: (file: File) => void;
   isCustomFileLoaded?: boolean;
   onResetDefault?: () => void;
@@ -68,6 +70,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onDownload,
   onOpenSearchModal,
   onOpenSaveWebPageModal,
+  onOpenQrModal,
   onUploadFile,
   isCustomFileLoaded,
   onResetDefault,
@@ -335,6 +338,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           >
             <Download className="w-4 h-4" />
           </button>
+
+          {/* QR Code & Page Link Button */}
+          {onOpenQrModal && (
+            <button
+              id="btn-toolbar-qr-link"
+              onClick={onOpenQrModal}
+              className="px-2.5 py-1.5 rounded-lg bg-[#003865] hover:bg-[#002b49] text-amber-300 border border-amber-400/30 font-semibold text-xs transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              title={isAr ? 'رابط الصفحة وتحويله إلى رمز QR' : 'Page Link & Convert to QR'}
+            >
+              <QrCode className="w-3.5 h-3.5 text-[#c5a059]" />
+              <span className="hidden sm:inline">{isAr ? 'رابط ورمز QR' : 'Link & QR'}</span>
+            </button>
+          )}
 
           {/* Fullscreen button */}
           <button

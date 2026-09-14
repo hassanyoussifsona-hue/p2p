@@ -520,6 +520,7 @@ export default function App() {
         onLanguageToggle={handleLanguageToggle}
         verification={verification}
         onOpenDetailsModal={() => setIsVerificationModalOpen(true)}
+        onOpenQrModal={() => setIsQrModalOpen(true)}
       />
 
       {/* PDF Action Toolbar */}
@@ -544,6 +545,7 @@ export default function App() {
         onDownload={handleDownload}
         onOpenSearchModal={() => setIsSearchOpen(true)}
         onOpenSaveWebPageModal={() => setIsSaveWebPageModalOpen(true)}
+        onOpenQrModal={() => setIsQrModalOpen(true)}
         onUploadFile={handleFileSelect}
         isCustomFileLoaded={isCustomFileLoaded}
         onResetDefault={handleResetDefault}
