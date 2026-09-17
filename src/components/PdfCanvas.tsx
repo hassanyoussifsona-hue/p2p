@@ -39,8 +39,8 @@ export const PdfCanvas: React.FC<PdfCanvasProps> = ({
   const [isRendering, setIsRendering] = useState(false);
   const [pageSize, setPageSize] = useState<{ width: number; height: number } | null>(null);
   const [naturalDimensions, setNaturalDimensions] = useState<{ width: number; height: number }>({
-    width: 794,
-    height: 1123,
+    width: 1240,
+    height: 1754,
   });
 
   // Load natural dimensions when imageSrc changes
@@ -49,8 +49,8 @@ export const PdfCanvas: React.FC<PdfCanvasProps> = ({
     const img = new Image();
     img.src = imageSrc;
     img.onload = () => {
-      const w = img.naturalWidth || 794;
-      const h = img.naturalHeight || 1123;
+      const w = img.naturalWidth || 1240;
+      const h = img.naturalHeight || 1754;
       setNaturalDimensions({ width: w, height: h });
     };
   }, [imageSrc]);
@@ -66,8 +66,8 @@ export const PdfCanvas: React.FC<PdfCanvasProps> = ({
         if (!container) return;
 
         // Leave comfortable padding around the document
-        const availableWidth = container.clientWidth - 48;
-        const availableHeight = container.clientHeight - 48;
+        const availableWidth = Math.max(100, container.clientWidth - 32);
+        const availableHeight = Math.max(100, container.clientHeight - 32);
 
         if (imageSrc) {
           const baseWidth = naturalDimensions.width;
@@ -265,7 +265,7 @@ export const PdfCanvas: React.FC<PdfCanvasProps> = ({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="relative flex-1 w-full h-full overflow-auto custom-scrollbar ios-smooth-scroll flex items-start sm:items-center justify-center p-2 sm:p-8 bg-neutral-950/90 select-none focus:outline-none"
+      className="relative flex-1 w-full h-full overflow-auto custom-scrollbar ios-smooth-scroll flex items-center justify-center p-2 sm:p-4 bg-neutral-950/90 select-none focus:outline-none"
       tabIndex={0}
     >
       <div className="min-w-full min-h-full flex items-center justify-center py-2 sm:py-4">

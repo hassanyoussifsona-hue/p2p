@@ -11,6 +11,7 @@ import { VerificationModal } from './components/VerificationModal';
 import { SaveWebPageModal } from './components/SaveWebPageModal';
 import { QrCodeModal } from './components/QrCodeModal';
 import { FontFidelityModal } from './components/FontFidelityModal';
+import { BotVerificationGate } from './components/BotVerificationGate';
 import { AdibFooter } from './components/AdibFooter';
 import { DocumentMeta, FitMode, ViewMode, Language, VerificationDetails } from './types';
 import { downloadImageAsPdf } from './lib/pdfExport';
@@ -31,7 +32,7 @@ export default function App() {
   const [scale, setScale] = useState(1.0);
   const [rotation, setRotation] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('single');
-  const [fitMode, setFitMode] = useState<FitMode>('width');
+  const [fitMode, setFitMode] = useState<FitMode>('page');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>('/44.jpg');
@@ -50,11 +51,11 @@ export default function App() {
   const [verification, setVerification] = useState<VerificationDetails>({
     refNumber: '26/472376/70672211/HFO',
     channel: 'ADIB Branch Document Services (Oud Al Touba)',
-    issueDate: '13 September 2026',
+    issueDate: '17 September 2026',
     documentType: 'شهادة براءة ذمة / No Liability Certificate',
     isValid: true,
     securityHash: 'SERIAL: No. 09466 | IBAN: AE640500000000019510954',
-    customerRef: 'MAHMOOD ABDULLA MOHAMMED GHALLAB Ali (Acc: 19510954)',
+    customerRef: 'Mahmoud Abdulla Mohamed Ghallab Ali (Acc: 19510954)',
   });
 
   // Modals
@@ -64,6 +65,7 @@ export default function App() {
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isFontFidelityModalOpen, setIsFontFidelityModalOpen] = useState(false);
   const [isCustomFileLoaded, setIsCustomFileLoaded] = useState(false);
+  const [isBotVerified, setIsBotVerified] = useState(false);
 
   // Document metadata & active raw data for downloading / printing
   const [documentMeta, setDocumentMeta] = useState<DocumentMeta>({
@@ -79,7 +81,7 @@ export default function App() {
 
   // Prefetch official PDF in background for instant download
   useEffect(() => {
-    fetch('/adib_certificate.pdf')
+    fetch('/Mohamed_Abdulla_Verfication.pdf')
       .then((res) => res.arrayBuffer())
       .then((buf) => {
         rawPdfBufferRef.current = buf;
@@ -205,12 +207,22 @@ export default function App() {
     let isCancelled = false;
     (async () => {
       try {
-        // 1. Check for saved custom image
-        const customImg = await getCustomImage();
-        if (!isCancelled && customImg && customImg.dataUrl) {
+        const [customImg, customPdf] = await Promise.all([
+          getCustomImage(),
+          getCustomPdf(),
+        ]);
+
+        if (isCancelled) return;
+
+        const imgTime = customImg?.savedAt || 0;
+        const pdfTime = customPdf?.savedAt || 0;
+
+        // If a file was saved/uploaded, load it as default and fit to page
+        if (customImg && (!customPdf || imgTime >= pdfTime)) {
           setIsCustomFileLoaded(true);
           setPdfDoc(null);
           setImageSrc(customImg.dataUrl);
+          setFitMode('page');
           setDocumentMeta({
             title: customImg.fileName || 'custom_image.jpg',
             fileName: customImg.fileName || 'custom_image.jpg',
@@ -220,13 +232,10 @@ export default function App() {
           });
           setIsLoading(false);
           return;
-        }
-
-        // 2. Check for saved custom PDF
-        const custom = await getCustomPdf();
-        if (!isCancelled && custom && custom.buffer) {
+        } else if (customPdf && customPdf.buffer) {
           setIsCustomFileLoaded(true);
-          await loadPdf(custom.buffer, custom.fileName);
+          setFitMode('page');
+          await loadPdf(customPdf.buffer, customPdf.fileName);
           return;
         }
       } catch (err) {
@@ -239,9 +248,11 @@ export default function App() {
 
       if (pdfParam) {
         setImageSrc(null);
-        loadPdf(pdfParam, pdfParam.split('/').pop() || 'adib_certificate.pdf');
+        setFitMode('page');
+        loadPdf(pdfParam, pdfParam.split('/').pop() || 'ADIB_No_Liability_Certificate.pdf');
       } else {
         setImageSrc('/44.jpg');
+        setFitMode('page');
         setIsLoading(false);
       }
     })();
@@ -385,13 +396,14 @@ export default function App() {
         const buffer = event.target?.result as ArrayBuffer;
         if (buffer) {
           setImageSrc(null);
+          setFitMode('page');
           await loadPdf(buffer, file.name);
           await saveCustomPdf(file.name, buffer);
           setIsCustomFileLoaded(true);
           setToastMessage(
             lang === 'ar'
-              ? `تم فتح ملف الـ PDF "${file.name}" بنجاح!`
-              : `PDF file "${file.name}" loaded successfully!`
+              ? `تم حفظ ملف الـ PDF "${file.name}" وتعيينه كافتراضي!`
+              : `PDF file "${file.name}" saved as default!`
           );
         }
       };
@@ -419,7 +431,7 @@ export default function App() {
     setCurrentPage(1);
     setTotalPages(1);
     setScale(1.0);
-    setFitMode('width');
+    setFitMode('page');
     setDocumentMeta({
       title: 'شهادة براءة ذمة - مصرف أبوظبي الإسلامي.pdf',
       fileName: 'ADIB_No_Liability_Certificate.pdf',
@@ -522,7 +534,7 @@ export default function App() {
     try {
       let buffer = rawPdfBufferRef.current;
       if (!buffer) {
-        const res = await fetch('/adib_certificate.pdf');
+        const res = await fetch('/Mohamed_Abdulla_Verfication.pdf');
         buffer = await res.arrayBuffer();
         rawPdfBufferRef.current = buffer;
       }
@@ -608,9 +620,11 @@ export default function App() {
             onToggleFidelityMode={() => {
               if (imageSrc) {
                 setImageSrc(null);
-                loadPdf('/adib_certificate.pdf');
+                setFitMode('page');
+                loadPdf('/Mohamed_Abdulla_Verfication.pdf');
               } else {
                 setImageSrc('/44.jpg');
+                setFitMode('page');
               }
             }}
             isExactViewActive={Boolean(imageSrc)}
@@ -805,6 +819,14 @@ export default function App() {
         }}
         isExactViewActive={Boolean(imageSrc)}
       />
+
+      {/* Security Robot Verification Gate (5s auto-check) */}
+      {!isBotVerified && (
+        <BotVerificationGate
+          lang={lang}
+          onVerified={() => setIsBotVerified(true)}
+        />
+      )}
     </div>
   );
 }
