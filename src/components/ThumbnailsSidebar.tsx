@@ -6,6 +6,7 @@ import { DocumentMeta } from '../types';
 interface ThumbnailsSidebarProps {
   pdfDoc: PDFDocumentProxy | null;
   imageSrc?: string | null;
+  imagePages?: string[];
   currentPage: number;
   totalPages: number;
   isOpen: boolean;
@@ -135,6 +136,7 @@ const ThumbnailItem: React.FC<ThumbnailItemProps> = ({
 export const ThumbnailsSidebar: React.FC<ThumbnailsSidebarProps> = ({
   pdfDoc,
   imageSrc,
+  imagePages,
   currentPage,
   totalPages,
   isOpen,
@@ -203,7 +205,7 @@ export const ThumbnailsSidebar: React.FC<ThumbnailsSidebarProps> = ({
             >
               <ThumbnailItem
                 pdfDoc={pdfDoc}
-                imageSrc={imageSrc}
+                imageSrc={imagePages && imagePages[pNum - 1] ? imagePages[pNum - 1] : imageSrc}
                 pageNumber={pNum}
                 isSelected={pNum === currentPage}
                 onSelect={() => onSelectPage(pNum)}

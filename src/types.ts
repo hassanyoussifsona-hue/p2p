@@ -7,6 +7,8 @@ export interface DocumentMeta {
   creationDate?: string;
   fileSize?: string;
   fileName: string;
+  currentQrUrl?: string;
+  originalPdf?: string;
 }
 
 export type ViewMode = 'single' | 'continuous';

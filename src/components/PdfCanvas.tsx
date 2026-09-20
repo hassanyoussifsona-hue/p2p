@@ -16,6 +16,8 @@ interface PdfCanvasProps {
   onPrevPage: () => void;
   totalPages: number;
   onUploadImageClick?: () => void;
+  qrUrl?: string;
+  onQrClick?: () => void;
 }
 
 export const PdfCanvas: React.FC<PdfCanvasProps> = ({
@@ -31,6 +33,8 @@ export const PdfCanvas: React.FC<PdfCanvasProps> = ({
   onPrevPage,
   totalPages,
   onUploadImageClick,
+  qrUrl,
+  onQrClick,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -280,13 +284,28 @@ export const PdfCanvas: React.FC<PdfCanvasProps> = ({
           }}
         >
           {imageSrc ? (
-            <div className="relative w-full h-full">
+            <div
+              className="relative w-full h-full"
+              style={{
+                aspectRatio: `${naturalDimensions.width} / ${naturalDimensions.height}`,
+              }}
+            >
               <img
                 id="pdf-main-image"
                 src={imageSrc}
                 alt={imageName}
                 referrerPolicy="no-referrer"
-                className="w-full h-full object-contain bg-white shadow-[0_12px_40px_rgba(0,0,0,0.6)] rounded-sm border border-neutral-800 block select-none pointer-events-auto"
+                onLoad={(e) => {
+                  const img = e.currentTarget;
+                  if (img.naturalWidth && img.naturalHeight) {
+                    setNaturalDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+                  }
+                }}
+                className="w-full h-full bg-white shadow-[0_12px_40px_rgba(0,0,0,0.6)] rounded-sm border border-neutral-800 block select-none pointer-events-auto"
+                style={{
+                  imageRendering: '-webkit-optimize-contrast',
+                  objectFit: 'contain',
+                }}
               />
             </div>
           ) : (
@@ -299,19 +318,25 @@ export const PdfCanvas: React.FC<PdfCanvasProps> = ({
           )}
 
           {/* Interactive QR Code Hotspot (Links directly to the portal) - only if default image/cert */}
-          {imageSrc === '/44.jpg' && (
+          {(imageSrc?.includes('44.jpg') || imageSrc?.includes('11.png')) && (
             <a
               id="pdf-cert-qr-hotspot"
-              href={typeof window !== 'undefined' ? window.location.origin.replace('ais-dev-', 'ais-pre-') : '#'}
+              href={qrUrl || (typeof window !== 'undefined' ? window.location.origin : '#')}
               target="_blank"
               rel="noopener noreferrer"
-              title="رمز الاستجابة السريعة (QR Code) لبوابة التحقق الرسمية - انقر لفتح أو نسخ الرابط"
+              onClick={(e) => {
+                if (onQrClick) {
+                  e.preventDefault();
+                  onQrClick();
+                }
+              }}
+              title="رمز الاستجابة السريعة (QR Code) لبوابة التحقق الرسمية - انقر لتجربة أو تحديث الرابط"
               className="absolute z-10 rounded-xs transition-all hover:ring-2 hover:ring-[#003865]/60 hover:bg-[#003865]/10 cursor-pointer"
               style={{
-                left: '43.06%',
-                top: '53.99%',
-                width: '9.68%',
-                height: '6.84%',
+                left: '40.8%',
+                top: '51.9%',
+                width: '16.5%',
+                height: '11.5%',
               }}
             />
           )}

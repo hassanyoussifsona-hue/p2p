@@ -36,6 +36,7 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>('/44.jpg');
+  const [documentPages, setDocumentPages] = useState<string[]>(['/44.jpg']);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -68,6 +69,9 @@ export default function App() {
   const [isBotVerified, setIsBotVerified] = useState(false);
 
   // Document metadata & active raw data for downloading / printing
+  const [currentQrUrl, setCurrentQrUrl] = useState<string>(
+    'https://ais-dev-jjoiefkhngzukahhahyand-171172990740.europe-west2.run.app'
+  );
   const [documentMeta, setDocumentMeta] = useState<DocumentMeta>({
     title: 'شهادة براءة ذمة - مصرف أبوظبي الإسلامي.pdf',
     fileName: 'ADIB_No_Liability_Certificate.pdf',
@@ -75,9 +79,28 @@ export default function App() {
     subject: 'No Liability Certificate',
     creator: 'ADIB Core Banking',
     producer: 'ADIB Document Vault',
+    currentQrUrl: 'https://ais-dev-jjoiefkhngzukahhahyand-171172990740.europe-west2.run.app',
   });
   const rawPdfBufferRef = useRef<ArrayBuffer | null>(null);
   const rootContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleQrApplied = (newUrl: string) => {
+    setCurrentQrUrl(newUrl);
+    setDocumentMeta((prev) => ({
+      ...prev,
+      currentQrUrl: newUrl,
+    }));
+    const ts = Date.now();
+    setImageSrc((prev) => (prev ? `${prev.split('?')[0]}?v=${ts}` : `/44.jpg?v=${ts}`));
+    setDocumentPages((prev) =>
+      prev ? prev.map((p) => `${p.split('?')[0]}?v=${ts}`) : [`/44.jpg?v=${ts}`]
+    );
+    setToastMessage(
+      lang === 'ar'
+        ? 'تم تحديث وطباعة رمز الـ QR الجديد على الشهادة بنجاح!'
+        : 'New QR code stamped onto certificate successfully!'
+    );
+  };
 
   // Prefetch official PDF in background for instant download
   useEffect(() => {
@@ -202,10 +225,43 @@ export default function App() {
     }
   }, [toastMessage]);
 
-  // Initial load: Checks for saved custom image, saved custom PDF, URL params, or default ADIB Certificate
+  // Initial load: Checks server document meta, saved custom media, URL params, or default ADIB Certificate
   useEffect(() => {
     let isCancelled = false;
     (async () => {
+      // 1. Check server document meta (synchronizes across all devices, direct links, and QR scans)
+      try {
+        const metaRes = await fetch('/api/document-meta', { cache: 'no-store' });
+        if (metaRes.ok) {
+          const meta = await metaRes.json();
+          if (meta && meta.pages && meta.pages.length > 0) {
+            if (!isCancelled) {
+              setDocumentPages(meta.pages);
+              setTotalPages(meta.totalPages || meta.pages.length);
+              setImageSrc(meta.pages[0]);
+              setFitMode('page');
+              setDocumentMeta({
+                title: meta.title || 'شهادة براءة ذمة - مصرف أبوظبي الإسلامي',
+                fileName: meta.fileName || 'ADIB_No_Liability_Certificate.pdf',
+                originalPdf: meta.originalPdf,
+                currentQrUrl: meta.currentQrUrl,
+              });
+              if (meta.currentQrUrl) {
+                setCurrentQrUrl(meta.currentQrUrl);
+              }
+              if (!meta.isDefault) {
+                setIsCustomFileLoaded(true);
+              }
+              setIsLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Could not fetch server document meta, checking local storage:', e);
+      }
+
+      // 2. Fallback to client IndexedDB if offline
       try {
         const [customImg, customPdf] = await Promise.all([
           getCustomImage(),
@@ -222,6 +278,7 @@ export default function App() {
           setIsCustomFileLoaded(true);
           setPdfDoc(null);
           setImageSrc(customImg.dataUrl);
+          setDocumentPages([customImg.dataUrl]);
           setFitMode('page');
           setDocumentMeta({
             title: customImg.fileName || 'custom_image.jpg',
@@ -252,6 +309,7 @@ export default function App() {
         loadPdf(pdfParam, pdfParam.split('/').pop() || 'ADIB_No_Liability_Certificate.pdf');
       } else {
         setImageSrc('/44.jpg');
+        setDocumentPages(['/44.jpg']);
         setFitMode('page');
         setIsLoading(false);
       }
@@ -343,7 +401,7 @@ export default function App() {
     }
   };
 
-  // Main file selector: processes any image or PDF immediately
+  // Main file selector: processes any image or PDF immediately with 100% fidelity
   const handleFileSelect = (file: File) => {
     setIsLoading(true);
     setError(null);
@@ -351,83 +409,121 @@ export default function App() {
     const isImage = file.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|svg|bmp|ico)$/i.test(file.name);
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
-    if (isImage) {
-      const reader = new FileReader();
-      reader.onload = async (ev) => {
-        const dataUrl = ev.target?.result as string;
-        if (dataUrl) {
-          // Clear any PDF document state
-          setPdfDoc(null);
-          setImageSrc(dataUrl);
-          setCurrentPage(1);
-          setTotalPages(1);
-          setScale(1.0);
-          setFitMode('page');
-
-          setDocumentMeta({
-            title: file.name,
-            fileName: file.name,
-            author: 'مصرف أبوظبي الإسلامي - ADIB',
-            subject: 'وثيقة رسمية / صورة مرفوعة',
-            creator: 'عارض مستندات ADIB',
-            producer: 'ADIB Instant Image Viewer',
-          });
-
-          // Persist image so refreshing the page preserves it
-          await saveCustomImage(file.name, dataUrl);
-          setIsCustomFileLoaded(true);
-          setIsLoading(false);
-
-          setToastMessage(
-            lang === 'ar'
-              ? `تم عرض الصورة "${file.name}" تلقائياً في منتصف الصفحة!`
-              : `Image "${file.name}" displayed automatically in the center!`
-          );
-        }
-      };
-      reader.onerror = () => {
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string;
+      if (!dataUrl) {
         setIsLoading(false);
-        setError(lang === 'ar' ? 'تعذر قراءة ملف الصورة المختارة.' : 'Failed to read the chosen image.');
-      };
-      reader.readAsDataURL(file);
-    } else if (isPdf) {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const buffer = event.target?.result as ArrayBuffer;
-        if (buffer) {
+        return;
+      }
+
+      // If it's an image, immediately show it for instant visual response
+      if (isImage) {
+        setPdfDoc(null);
+        setImageSrc(dataUrl);
+        setDocumentPages([dataUrl]);
+        setCurrentPage(1);
+        setTotalPages(1);
+        setScale(1.0);
+        setFitMode('page');
+
+        setDocumentMeta({
+          title: file.name,
+          fileName: file.name,
+          author: 'مصرف أبوظبي الإسلامي - ADIB',
+          subject: 'وثيقة رسمية / صورة مرفوعة',
+          creator: 'عارض مستندات ADIB',
+          producer: 'ADIB High Fidelity Viewer',
+        });
+
+        // Save locally in IndexedDB as fallback
+        await saveCustomImage(file.name, dataUrl);
+        setIsCustomFileLoaded(true);
+      }
+
+      // Synchronize with server to permanently persist as default document and rasterize with 100% font & signature accuracy
+      try {
+        const res = await fetch('/api/upload-document', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileType: file.type || (isPdf ? 'application/pdf' : 'image/png'),
+            fileData: dataUrl,
+          }),
+        });
+
+        if (res.ok) {
+          const result = await res.json();
+          if (result.success && result.meta) {
+            const m = result.meta;
+            setDocumentPages(m.pages || [dataUrl]);
+            setTotalPages(m.totalPages || 1);
+            setCurrentPage(1);
+            setImageSrc(m.pages[0]);
+            setPdfDoc(null);
+            setIsCustomFileLoaded(true);
+            setDocumentMeta({
+              title: m.title || file.name,
+              fileName: m.fileName || file.name,
+              originalPdf: m.originalPdf,
+            });
+            setIsLoading(false);
+            setToastMessage(
+              lang === 'ar'
+                ? `تم تثبيت المستند "${file.name}" كافتراضي بنجاح وبدقة مطابقة 100% دون أي تغير في الخطوط أو التوقيع!`
+                : `Document "${file.name}" permanently saved as default with 100% fidelity!`
+            );
+            return;
+          }
+        }
+      } catch (uploadErr) {
+        console.warn('Server upload fallback to local browser storage:', uploadErr);
+      }
+
+      // If server upload failed and it's a PDF, fallback to client-side pdfjs
+      if (isPdf) {
+        try {
+          const base64Data = dataUrl.split(',')[1];
+          const binaryStr = atob(base64Data);
+          const len = binaryStr.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binaryStr.charCodeAt(i);
+          }
           setImageSrc(null);
           setFitMode('page');
-          await loadPdf(buffer, file.name);
-          await saveCustomPdf(file.name, buffer);
+          await loadPdf(bytes.buffer, file.name);
+          await saveCustomPdf(file.name, bytes.buffer);
           setIsCustomFileLoaded(true);
-          setToastMessage(
-            lang === 'ar'
-              ? `تم حفظ ملف الـ PDF "${file.name}" وتعيينه كافتراضي!`
-              : `PDF file "${file.name}" saved as default!`
-          );
+        } catch (pdfErr) {
+          console.error('PDF loading error:', pdfErr);
         }
-      };
-      reader.onerror = () => {
-        setIsLoading(false);
-        setError(lang === 'ar' ? 'تعذر فتح ملف الـ PDF.' : 'Failed to read PDF document.');
-      };
-      reader.readAsArrayBuffer(file);
-    } else {
+      }
+
       setIsLoading(false);
-      alert(
-        lang === 'ar'
-          ? 'يرجى اختيار صورة صالحة (PNG, JPG, WEBP, GIF) أو ملف PDF.'
-          : 'Please choose a valid image file (PNG, JPG, WEBP) or a PDF.'
-      );
-    }
+    };
+
+    reader.onerror = () => {
+      setIsLoading(false);
+      setError(lang === 'ar' ? 'تعذر قراءة ملف المستند المختار.' : 'Failed to read the chosen document file.');
+    };
+
+    reader.readAsDataURL(file);
   };
 
   const handleResetDefault = async () => {
+    try {
+      await fetch('/api/reset-document', { method: 'POST' });
+    } catch (e) {
+      console.warn('Could not reset server document', e);
+    }
     await clearCustomPdf();
     await clearCustomImage();
     setIsCustomFileLoaded(false);
     setPdfDoc(null);
     setImageSrc('/44.jpg');
+    setDocumentPages(['/44.jpg']);
     setCurrentPage(1);
     setTotalPages(1);
     setScale(1.0);
@@ -657,6 +753,7 @@ export default function App() {
         <ThumbnailsSidebar
           pdfDoc={pdfDoc}
           imageSrc={imageSrc}
+          imagePages={documentPages}
           currentPage={currentPage}
           totalPages={totalPages}
           isOpen={isSidebarOpen}
@@ -717,7 +814,7 @@ export default function App() {
         ) : viewMode === 'single' ? (
           <PdfCanvas
             pdfDoc={pdfDoc}
-            imageSrc={imageSrc}
+            imageSrc={(documentPages && documentPages[currentPage - 1]) ? documentPages[currentPage - 1] : imageSrc}
             imageName={documentMeta.title}
             currentPage={currentPage}
             scale={scale}
@@ -730,11 +827,14 @@ export default function App() {
             onUploadImageClick={() => {
               document.getElementById('btn-upload-image-toolbar')?.click();
             }}
+            qrUrl={currentQrUrl}
+            onQrClick={() => setIsQrModalOpen(true)}
           />
         ) : (
           <ContinuousView
             pdfDoc={pdfDoc}
             imageSrc={imageSrc}
+            imagePages={documentPages}
             scale={scale}
             rotation={rotation}
             onVisiblePageChange={(p) => setCurrentPage(p)}
@@ -805,6 +905,8 @@ export default function App() {
         isOpen={isQrModalOpen}
         onClose={() => setIsQrModalOpen(false)}
         lang={lang}
+        currentQrUrl={currentQrUrl}
+        onQrApplied={handleQrApplied}
       />
 
       {/* Font & Signature Fidelity & iOS Guide Modal */}

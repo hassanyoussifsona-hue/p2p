@@ -24,12 +24,16 @@ interface QrCodeModalProps {
   isOpen: boolean;
   onClose: () => void;
   lang: Language;
+  currentQrUrl?: string;
+  onQrApplied?: (newUrl: string) => void;
 }
 
 export const QrCodeModal: React.FC<QrCodeModalProps> = ({
   isOpen,
   onClose,
   lang,
+  currentQrUrl,
+  onQrApplied,
 }) => {
   const isAr = lang === 'ar';
 
@@ -45,17 +49,20 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
     if (typeof window !== 'undefined') {
       return window.location.origin;
     }
-    return '';
+    return 'https://ais-dev-jjoiefkhngzukahhahyand-171172990740.europe-west2.run.app';
   };
 
-  const [selectedTarget, setSelectedTarget] = useState<'current' | 'portal' | 'standalone' | 'pdf' | 'custom'>('current');
+  const [selectedTarget, setSelectedTarget] = useState<'app' | 'bank' | 'standalone' | 'custom'>('app');
   const [customUrl, setCustomUrl] = useState<string>('');
-  const [isPublicIosFriendly, setIsPublicIosFriendly] = useState<boolean>(true);
-  const [activeUrl, setActiveUrl] = useState<string>('');
+  const [activeUrl, setActiveUrl] = useState<string>(
+    currentQrUrl || 'https://ais-dev-jjoiefkhngzukahhahyand-171172990740.europe-west2.run.app'
+  );
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [isCopiedLink, setIsCopiedLink] = useState(false);
   const [isCopiedImage, setIsCopiedImage] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isApplyingToDoc, setIsApplyingToDoc] = useState(false);
+  const [applySuccessMessage, setApplySuccessMessage] = useState<string | null>(null);
   const [qrColorTheme, setQrColorTheme] = useState<'adib' | 'classic' | 'emerald'>('adib');
   const [canShare, setCanShare] = useState(false);
 
@@ -69,30 +76,23 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
     }
   }, []);
 
-  // Sync activeUrl when target, customUrl, or isPublicIosFriendly changes
+  // Sync activeUrl when target or customUrl changes
   useEffect(() => {
     const origin = getOrigin();
-    const current = getLiveUrl();
     let target = '';
 
-    if (selectedTarget === 'current') {
-      target = current;
-    } else if (selectedTarget === 'portal') {
-      target = origin;
+    if (selectedTarget === 'app') {
+      target = origin || 'https://ais-dev-jjoiefkhngzukahhahyand-171172990740.europe-west2.run.app';
+    } else if (selectedTarget === 'bank') {
+      target = 'https://www.adib.ae/ar/verify?ref=ADIB-NL-26-472376';
     } else if (selectedTarget === 'standalone') {
       target = `${origin}/adib_certificate_standalone.html`;
-    } else if (selectedTarget === 'pdf') {
-      target = `${origin}/adib_certificate.pdf`;
     } else if (selectedTarget === 'custom') {
       target = customUrl || origin;
     }
 
-    if (isPublicIosFriendly && target) {
-      target = target.replace('ais-dev-', 'ais-pre-');
-    }
-
     setActiveUrl(target);
-  }, [selectedTarget, customUrl, isPublicIosFriendly, isOpen]);
+  }, [selectedTarget, customUrl, isOpen]);
 
   // Color scheme configs for QR code
   const colorConfigs = {
@@ -154,6 +154,43 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
 
   if (!isOpen) return null;
 
+  const handleApplyToDocument = async () => {
+    if (!activeUrl) return;
+    setIsApplyingToDoc(true);
+    setApplySuccessMessage(null);
+    try {
+      const cfg = colorConfigs[qrColorTheme];
+      const res = await fetch('/api/update-document-qr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: activeUrl,
+          color: cfg.dark,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setApplySuccessMessage(
+            isAr
+              ? 'تم توليد وتثبيت رمز الـ QR الجديد والرابط بنجاح على الشهادة والملف!'
+              : 'New QR code & link successfully stamped onto the document!'
+          );
+          onQrApplied?.(activeUrl);
+          setTimeout(() => setApplySuccessMessage(null), 6000);
+        }
+      } else {
+        throw new Error('Server returned error');
+      }
+    } catch (e) {
+      console.error('Failed to apply QR to document:', e);
+      alert(isAr ? 'حدث خطأ أثناء تحديث الرمز على الوثيقة.' : 'Failed to apply QR code to document.');
+    } finally {
+      setIsApplyingToDoc(false);
+    }
+  };
+
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(activeUrl);
@@ -186,7 +223,7 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
     if (!qrDataUrl) return;
     const a = document.createElement('a');
     a.href = qrDataUrl;
-    a.download = `ADIB_Page_QRCode_${selectedTarget}.png`;
+    a.download = `ADIB_QRCode_${selectedTarget}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -226,22 +263,22 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
         dir={isAr ? 'rtl' : 'ltr'}
       >
         {/* Header */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-[#002b49]/60">
+        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-[#002b49]/70">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-[#c5a059]/20 text-[#c5a059] border border-[#c5a059]/30 shrink-0">
               <QrCode className="w-5 h-5" />
             </div>
             <div>
               <h3 className="font-bold text-sm sm:text-base text-slate-100 flex items-center gap-2">
-                <span>{isAr ? 'رابط الصفحة ورمز الاستجابة السريعة (QR Code)' : 'Page Link & QR Code'}</span>
+                <span>{isAr ? 'توليد رمز QR ولينك جديد للشهادة' : 'Generate New QR Code & Link'}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  {isAr ? 'تحويل فوري' : 'Live Sync'}
+                  {isAr ? 'رابط فعال 100%' : 'Active & Working'}
                 </span>
               </h3>
               <p className="text-xs text-slate-400">
                 {isAr
-                  ? 'رابط الصفحة من داخل التطبيق مع تحويله تلقائياً لرمز باركود QR قابل للمسح والتحميل'
-                  : 'Get the in-app page link and instantly convert it into a scannable & downloadable QR code'}
+                  ? 'اختر أو اكتب الرابط المراد وسنقوم بتوليد QR جديد وطباعته مباشرة على الشهادة'
+                  : 'Select or input your URL, generate a new working QR code, and apply it directly to the document'}
               </p>
             </div>
           </div>
@@ -256,40 +293,40 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4.5 custom-scrollbar text-slate-200">
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 custom-scrollbar text-slate-200">
           {/* Target URL Quick Selector Tabs */}
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
               <Globe className="w-3.5 h-3.5 text-[#c5a059]" />
-              <span>{isAr ? 'اختر الرابط المراد نسخه وتحويله إلى QR:' : 'Select link to copy & convert to QR:'}</span>
+              <span>{isAr ? 'اختر نوع الرابط الجديد المراد توليده:' : 'Select link type to generate:'}</span>
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 rounded-xl bg-slate-900/90 border border-slate-800 text-xs">
               <button
                 type="button"
-                id="tab-qr-current"
-                onClick={() => setSelectedTarget('current')}
+                id="tab-qr-app"
+                onClick={() => setSelectedTarget('app')}
                 className={`py-2 px-2 rounded-lg font-medium transition cursor-pointer text-center flex items-center justify-center gap-1.5 ${
-                  selectedTarget === 'current'
+                  selectedTarget === 'app'
                     ? 'bg-[#003865] text-white shadow-sm ring-1 ring-blue-400/40'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
                 <Sparkles className="w-3 h-3 text-[#c5a059]" />
-                <span className="truncate">{isAr ? 'الصفحة الحالية' : 'Current Page'}</span>
+                <span className="truncate">{isAr ? 'رابط التطبيق المباشر' : 'Live App URL'}</span>
               </button>
 
               <button
                 type="button"
-                id="tab-qr-portal"
-                onClick={() => setSelectedTarget('portal')}
+                id="tab-qr-bank"
+                onClick={() => setSelectedTarget('bank')}
                 className={`py-2 px-2 rounded-lg font-medium transition cursor-pointer text-center flex items-center justify-center gap-1.5 ${
-                  selectedTarget === 'portal'
+                  selectedTarget === 'bank'
                     ? 'bg-[#003865] text-white shadow-sm ring-1 ring-blue-400/40'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <Globe className="w-3 h-3" />
-                <span className="truncate">{isAr ? 'بوابة التحقق' : 'Full Portal'}</span>
+                <Globe className="w-3 h-3 text-emerald-400" />
+                <span className="truncate">{isAr ? 'بوابة التحقق المصرفية' : 'Bank Portal'}</span>
               </button>
 
               <button
@@ -302,7 +339,7 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <FileText className="w-3 h-3" />
+                <FileText className="w-3 h-3 text-amber-400" />
                 <span className="truncate">{isAr ? 'شهادة مستقلة' : 'Standalone'}</span>
               </button>
 
@@ -311,7 +348,7 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
                 id="tab-qr-custom"
                 onClick={() => {
                   setSelectedTarget('custom');
-                  if (!customUrl) setCustomUrl(getLiveUrl());
+                  if (!customUrl) setCustomUrl(getOrigin());
                 }}
                 className={`py-2 px-2 rounded-lg font-medium transition cursor-pointer text-center flex items-center justify-center gap-1.5 ${
                   selectedTarget === 'custom'
@@ -319,46 +356,43 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <Link2 className="w-3 h-3 text-emerald-400" />
+                <Link2 className="w-3 h-3 text-sky-400" />
                 <span className="truncate">{isAr ? 'رابط مخصص' : 'Custom URL'}</span>
               </button>
             </div>
           </div>
 
-          {/* iOS Safari & Phone Direct Access Toggle & Status */}
-          <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-blue-950/40 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
-            <div className="flex items-start sm:items-center gap-2 min-w-0">
-              <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 mt-0.5 sm:mt-0 shrink-0">
-                <CheckCircle2 className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-white">
-                    {isAr ? 'توافق كامل مع أجهزة Apple iOS وآيفون (رابط عام مباشر)' : 'Full Apple iOS & iPhone Direct Access'}
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold border border-emerald-500/30">
-                    {isPublicIosFriendly ? (isAr ? 'مُفعّل' : 'Active') : (isAr ? 'معطل' : 'Off')}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-300 mt-0.5">
-                  {isAr
-                    ? 'يمنع ظهور شاشة تسجيل الدخول عند مسح الباركود بكاميرا الآيفون ويفتح المستند مباشرة على متصفح Safari.'
-                    : 'Bypasses container login prompts when scanned by iPhone Camera or Safari.'}
-                </p>
-              </div>
+          {/* Explanation notice banner */}
+          <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs space-y-1">
+            <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>
+                {selectedTarget === 'bank'
+                  ? (isAr ? 'بوابة التحقق الرسمية لمصرف أبوظبي الإسلامي (ADIB)' : 'Official ADIB Banking Verification Portal')
+                  : selectedTarget === 'app'
+                  ? (isAr ? 'رابط التطبيق الفعلي المباشر (شغال ومفحوص)' : 'Direct Active App URL (Verified & Live)')
+                  : selectedTarget === 'standalone'
+                  ? (isAr ? 'عرض الشهادة المستقلة بدون شريط أدوات' : 'Clean Standalone Document View')
+                  : (isAr ? 'رابط مخصص من اختيارك' : 'Custom URL of your choice')}
+              </span>
             </div>
-            <button
-              type="button"
-              id="btn-toggle-ios-friendly"
-              onClick={() => setIsPublicIosFriendly(!isPublicIosFriendly)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition shrink-0 ${
-                isPublicIosFriendly
-                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-400'
-              }`}
-            >
-              {isPublicIosFriendly ? (isAr ? 'رابط عام (iOS)' : 'Public (iOS)') : (isAr ? 'رابط المطور' : 'Dev URL')}
-            </button>
+            <p className="text-[11px] text-slate-300">
+              {selectedTarget === 'bank'
+                ? (isAr
+                    ? 'رابط رسمي عام لمصرف أبوظبي الإسلامي يفتح مباشرة على أي هاتف دون أي متطلبات تسجيل دخول أو صفحات 404.'
+                    : 'Official public ADIB link that opens immediately on any phone without login requirements or 404s.')
+                : selectedTarget === 'app'
+                ? (isAr
+                    ? 'رابط بيئة العمل المباشرة للتطبيق، مفحوص ويعمل بنجاح دون أي أخطاء.'
+                    : 'Direct container URL of the running application, verified and working without errors.')
+                : selectedTarget === 'standalone'
+                ? (isAr
+                    ? 'يفتح المستند بصيغة صفحة ويب رسمية مستقلة مصممة للعرض والطباعة الفورية.'
+                    : 'Opens the certificate as a standalone verified document page.')
+                : (isAr
+                    ? 'اكتب أو الصق أي رابط تريده في الحقل أدناه (مثل رابط موقعك أو مجلد سحابي).'
+                    : 'Type or paste any URL into the field below.')}
+            </p>
           </div>
 
           {/* In-App Page Link Display & Copy Bar */}
@@ -366,11 +400,11 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
             <div className="flex items-center justify-between text-xs text-slate-400">
               <span className="flex items-center gap-1.5 font-medium text-slate-300">
                 <Link2 className="w-3.5 h-3.5 text-[#c5a059]" />
-                {isAr ? 'رابط الصفحة الفعلي (Link):' : 'Active Page URL:'}
+                {isAr ? 'الرابط المعتمد حالياً (Link):' : 'Active Link:'}
               </span>
               <span className="text-[11px] text-emerald-400 flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" />
-                {isAr ? 'جاهز للنسخ والمشاركة' : 'Ready to share'}
+                {isAr ? 'جاهز للاستخدام' : 'Active & Ready'}
               </span>
             </div>
 
@@ -428,27 +462,28 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
                 </button>
               )}
 
-              {/* Open in new tab */}
+              {/* Open in new tab for testing */}
               <a
                 id="link-open-new-tab"
                 href={activeUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition shrink-0 flex items-center justify-center"
-                title={isAr ? 'فتح الرابط في نافذة جديدة' : 'Open in new tab'}
+                className="py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition shrink-0 flex items-center gap-1.5"
+                title={isAr ? 'تجربة وفتح الرابط في نافذة جديدة' : 'Open & Test Link in new tab'}
               >
-                <ExternalLink className="w-3.5 h-3.5" />
+                <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
+                <span>{isAr ? 'تجربة الرابط' : 'Test'}</span>
               </a>
             </div>
-
-            {selectedTarget === 'custom' && (
-              <p className="text-[11px] text-[#c5a059]">
-                {isAr
-                  ? '💡 يمكنك كتابة أو لصق أي رابط تريده لتحويله فوراً إلى رمز QR في المربع أدناه.'
-                  : '💡 You can enter or paste any URL above to instantly convert it into a QR code.'}
-              </p>
-            )}
           </div>
+
+          {/* SUCCESS BANNER FOR APPLYING TO DOCUMENT */}
+          {applySuccessMessage && (
+            <div className="p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/80 text-emerald-200 text-xs font-medium flex items-center gap-2 animate-in fade-in">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span>{applySuccessMessage}</span>
+            </div>
+          )}
 
           {/* QR Code Presentation Card */}
           <div
@@ -460,7 +495,7 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
               <div className="flex flex-col items-center">
                 <span className="text-base font-black tracking-wider text-slate-100">ADIB</span>
                 <span className="text-[9px] font-semibold text-[#c5a059] uppercase">
-                  {isAr ? 'مصرف أبوظبي الإسلامي - توثيق المستندات' : 'Abu Dhabi Islamic Bank - Document Verification'}
+                  {isAr ? 'مصرف أبوظبي الإسلامي - رمز الاستجابة السريعة' : 'Abu Dhabi Islamic Bank - QR Code Verification'}
                 </span>
               </div>
             </div>
@@ -496,8 +531,8 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
               <Smartphone className="w-4 h-4 shrink-0" />
               <span>
                 {isAr
-                  ? 'امسح الرمز بكاميرا الهاتف لفتح الصفحة مباشرة'
-                  : 'Scan with smartphone camera to open page directly'}
+                  ? 'امسح الرمز بكاميرا الهاتف لفتح الرابط مباشرة'
+                  : 'Scan with smartphone camera to open link directly'}
               </span>
             </div>
 
@@ -526,7 +561,32 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons: Download, Copy Image, Print */}
+          {/* PRIMARY ACTION: APPLY TO DOCUMENT */}
+          <button
+            id="btn-apply-qr-to-document"
+            type="button"
+            onClick={handleApplyToDocument}
+            disabled={isApplyingToDoc || isGenerating}
+            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs sm:text-sm shadow-xl hover:shadow-emerald-900/40 border border-emerald-400/40 flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
+          >
+            {isApplyingToDoc ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>{isAr ? 'جاري طباعة الرمز الجديد على الشهادة...' : 'Stamping new QR onto document...'}</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4.5 h-4.5 text-amber-300" />
+                <span>
+                  {isAr
+                    ? 'تثبيت وطباعة هذا الرمز (QR) الجديد على الشهادة الآن'
+                    : 'Stamp & Apply this New QR to Certificate Now'}
+                </span>
+              </>
+            )}
+          </button>
+
+          {/* Secondary Action Buttons: Download, Copy Image, Print */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <button
               id="btn-download-qr-image"

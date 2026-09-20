@@ -4,6 +4,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 interface ContinuousViewProps {
   pdfDoc: PDFDocumentProxy | null;
   imageSrc?: string | null;
+  imagePages?: string[];
   scale: number;
   rotation: number;
   onVisiblePageChange: (pageNum: number) => void;
@@ -34,13 +35,20 @@ const ContinuousPageItem: React.FC<PageItemProps> = ({
 
   useEffect(() => {
     if (imageSrc) {
-      const baseWidth = 794;
-      const baseHeight = 1123;
-      setDimensions({
-        width: Math.floor(baseWidth * scale),
-        height: Math.floor(baseHeight * scale),
-      });
-      setIsRendered(true);
+      const img = new Image();
+      img.src = imageSrc;
+      img.onload = () => {
+        const baseW = img.naturalWidth || 1240;
+        const baseH = img.naturalHeight || 1754;
+        // Standardize reference scale so 1.0 looks crisp and comfortable on screen
+        const refWidth = baseW > 1000 ? baseW * 0.65 : baseW;
+        const refHeight = baseH > 1000 ? baseH * 0.65 : baseH;
+        setDimensions({
+          width: Math.floor(refWidth * scale),
+          height: Math.floor(refHeight * scale),
+        });
+        setIsRendered(true);
+      };
       return;
     }
 
@@ -167,6 +175,7 @@ const ContinuousPageItem: React.FC<PageItemProps> = ({
 export const ContinuousView: React.FC<ContinuousViewProps> = ({
   pdfDoc,
   imageSrc,
+  imagePages,
   scale,
   rotation,
   onVisiblePageChange,
@@ -185,7 +194,7 @@ export const ContinuousView: React.FC<ContinuousViewProps> = ({
         <ContinuousPageItem
           key={pNum}
           pdfDoc={pdfDoc}
-          imageSrc={imageSrc}
+          imageSrc={imagePages && imagePages[pNum - 1] ? imagePages[pNum - 1] : imageSrc}
           pageNumber={pNum}
           scale={scale}
           rotation={rotation}
