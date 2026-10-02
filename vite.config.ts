@@ -4,7 +4,32 @@ import path from 'path';
 import fs from 'fs';
 import { execSync } from 'child_process';
 import QRCode from 'qrcode';
+import { PDFDocument } from 'pdf-lib';
 import { defineConfig, type Plugin } from 'vite';
+
+async function convertImageToPdf(imagePath: string, outputPath: string) {
+  try {
+    const imgBytes = fs.readFileSync(imagePath);
+    const pdfDoc = await PDFDocument.create();
+    let image;
+    try {
+      image = await pdfDoc.embedPng(imgBytes);
+    } catch {
+      image = await pdfDoc.embedJpg(imgBytes);
+    }
+    const page = pdfDoc.addPage([image.width, image.height]);
+    page.drawImage(image, {
+      x: 0,
+      y: 0,
+      width: image.width,
+      height: image.height,
+    });
+    const pdfBytes = await pdfDoc.save();
+    fs.writeFileSync(outputPath, pdfBytes);
+  } catch (err) {
+    console.error('Error generating PDF from image:', err);
+  }
+}
 
 function documentApiPlugin(): Plugin {
   return {
@@ -61,11 +86,11 @@ function documentApiPlugin(): Plugin {
                   } catch {}
                 }
 
-                // High-resolution Ghostscript/ImageMagick rasterization (200 DPI = ~1654x2339 per A4 page)
+                // High-resolution Ghostscript rasterization (200 DPI = ~1654x2339 per A4 page)
                 // This locks in every Arabic ligature, prevents font separation, and preserves exact signature metrics
                 const outputPrefix = path.join(publicDir, 'doc_page_');
                 try {
-                  execSync(`convert -density 200 "${pdfPath}" -quality 100 "${outputPrefix}%d.png"`);
+                  execSync(`gs -dNOPAUSE -dBATCH -sDEVICE=png16m -r200 -sOutputFile="${outputPrefix}%d.png" "${pdfPath}"`);
                 } catch (convErr) {
                   console.error('PDF raster conversion error:', convErr);
                 }
@@ -108,11 +133,11 @@ function documentApiPlugin(): Plugin {
                 const imgPath = path.join(publicDir, `uploaded_doc${ext}`);
                 fs.writeFileSync(imgPath, buffer);
 
-                // Overwrite 44.jpg and 11.png as the master image
+                // Update master image and PDF safely using pdf-lib
                 try {
                   execSync(`convert "${imgPath}" -quality 95 "${path.join(publicDir, '44.jpg')}"`);
                   execSync(`convert "${imgPath}" "${path.join(publicDir, '11.png')}"`);
-                  execSync(`convert "${imgPath}" -page 1240x1754 "${path.join(publicDir, 'Mohamed_Abdulla_Verfication.pdf')}"`);
+                  await convertImageToPdf(imgPath, path.join(publicDir, 'sample_document.pdf'));
                 } catch (imgErr) {
                   console.error('Image sync error:', imgErr);
                 }
@@ -124,7 +149,7 @@ function documentApiPlugin(): Plugin {
                   fileType: 'image',
                   totalPages: 1,
                   pages: [`/uploaded_doc${ext}`],
-                  originalPdf: '/Mohamed_Abdulla_Verfication.pdf',
+                  originalPdf: '/sample_document.pdf',
                   updatedAt: Date.now(),
                 };
 
@@ -176,8 +201,7 @@ function documentApiPlugin(): Plugin {
               if (fs.existsSync(masterPng)) {
                 try {
                   execSync(`composite -geometry +506+911 "${qrTemp}" "${masterPng}" "${masterPng}"`);
-                  execSync(`convert "${masterPng}" -page 1240x1754 "${path.join(publicDir, 'Mohamed_Abdulla_Verfication.pdf')}"`);
-                  execSync(`convert "${masterPng}" -page 1240x1754 "${path.join(publicDir, 'adib_certificate.pdf')}"`);
+                  await convertImageToPdf(masterPng, path.join(publicDir, 'sample_document.pdf'));
                 } catch (e) {
                   console.error('Failed composite 11.png / pdf:', e);
                 }
