@@ -24,12 +24,12 @@ function documentApiPlugin(): Plugin {
           return res.end(
             JSON.stringify({
               isDefault: true,
-              fileName: 'ADIB_No_Liability_Certificate.jpg',
-              title: 'شهادة براءة ذمة - مصرف أبوظبي الإسلامي',
+              fileName: 'sample_document.png',
+              title: 'وثيقة تحقق تجريبية / Sample Verification Document',
               fileType: 'image',
               totalPages: 1,
-              pages: ['/44.jpg'],
-              originalPdf: '/Mohamed_Abdulla_Verfication.pdf',
+              pages: ['/sample_document.png'],
+              originalPdf: '/sample_document.pdf',
               updatedAt: Date.now(),
             })
           );
@@ -210,12 +210,12 @@ function documentApiPlugin(): Plugin {
           const publicDir = path.resolve(__dirname, 'public');
           const meta = {
             isDefault: true,
-            fileName: 'ADIB_No_Liability_Certificate.jpg',
-            title: 'شهادة براءة ذمة - مصرف أبوظبي الإسلامي',
+            fileName: 'sample_document.png',
+            title: 'وثيقة تحقق تجريبية / Sample Verification Document',
             fileType: 'image',
             totalPages: 1,
-            pages: ['/44.jpg'],
-            originalPdf: '/Mohamed_Abdulla_Verfication.pdf',
+            pages: ['/sample_document.png'],
+            originalPdf: '/sample_document.pdf',
             updatedAt: Date.now(),
           };
           fs.writeFileSync(path.join(publicDir, 'document_meta.json'), JSON.stringify(meta, null, 2));

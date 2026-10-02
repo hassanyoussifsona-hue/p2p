@@ -35,8 +35,8 @@ export default function App() {
   const [fitMode, setFitMode] = useState<FitMode>('page');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [imageSrc, setImageSrc] = useState<string | null>('/44.jpg');
-  const [documentPages, setDocumentPages] = useState<string[]>(['/44.jpg']);
+  const [imageSrc, setImageSrc] = useState<string | null>('/sample_document.png');
+  const [documentPages, setDocumentPages] = useState<string[]>(['/sample_document.png']);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -48,15 +48,15 @@ export default function App() {
   // Language state (default Arabic, can toggle to English)
   const [lang, setLang] = useState<Language>('ar');
 
-  // Verification Details matching the ADIB No Liability Certificate
+  // Verification Details for generic verification document
   const [verification, setVerification] = useState<VerificationDetails>({
-    refNumber: '26/472376/70672211/HFO',
-    channel: 'ADIB Branch Document Services (Oud Al Touba)',
-    issueDate: '17 September 2026',
-    documentType: 'شهادة براءة ذمة / No Liability Certificate',
+    refNumber: 'DOC-VERIFY-2026-9482',
+    channel: 'Document Verification System (Online)',
+    issueDate: '01 October 2026',
+    documentType: 'وثيقة تحقق تجريبية / Sample Verification Document',
     isValid: true,
-    securityHash: 'SERIAL: No. 09466 | IBAN: AE640500000000019510954',
-    customerRef: 'Mahmoud Abdulla Mohamed Ghallab Ali (Acc: 19510954)',
+    securityHash: 'SERIAL: DOC-2026-9482 | REF: VERIFY-DEMO-SAMPLE',
+    customerRef: 'Test Sample User / مستخدم تجريبي',
   });
 
   // Modals
@@ -73,12 +73,12 @@ export default function App() {
     'https://ais-dev-jjoiefkhngzukahhahyand-171172990740.europe-west2.run.app'
   );
   const [documentMeta, setDocumentMeta] = useState<DocumentMeta>({
-    title: 'شهادة براءة ذمة - مصرف أبوظبي الإسلامي.pdf',
-    fileName: 'ADIB_No_Liability_Certificate.pdf',
-    author: 'Abu Dhabi Islamic Bank',
-    subject: 'No Liability Certificate',
-    creator: 'ADIB Core Banking',
-    producer: 'ADIB Document Vault',
+    title: 'وثيقة تحقق تجريبية / Sample Verification Document',
+    fileName: 'sample_document.png',
+    author: 'Document Verification System',
+    subject: 'Sample Verification Document',
+    creator: 'Document Viewer Core',
+    producer: 'Secure Document Vault',
     currentQrUrl: 'https://ais-dev-jjoiefkhngzukahhahyand-171172990740.europe-west2.run.app',
   });
   const rawPdfBufferRef = useRef<ArrayBuffer | null>(null);
@@ -91,20 +91,20 @@ export default function App() {
       currentQrUrl: newUrl,
     }));
     const ts = Date.now();
-    setImageSrc((prev) => (prev ? `${prev.split('?')[0]}?v=${ts}` : `/44.jpg?v=${ts}`));
+    setImageSrc((prev) => (prev ? `${prev.split('?')[0]}?v=${ts}` : `/sample_document.png?v=${ts}`));
     setDocumentPages((prev) =>
-      prev ? prev.map((p) => `${p.split('?')[0]}?v=${ts}`) : [`/44.jpg?v=${ts}`]
+      prev ? prev.map((p) => `${p.split('?')[0]}?v=${ts}`) : [`/sample_document.png?v=${ts}`]
     );
     setToastMessage(
       lang === 'ar'
-        ? 'تم تحديث وطباعة رمز الـ QR الجديد على الشهادة بنجاح!'
-        : 'New QR code stamped onto certificate successfully!'
+        ? 'تم تحديث وطباعة رمز الـ QR الجديد على الوثيقة بنجاح!'
+        : 'New QR code stamped onto document successfully!'
     );
   };
 
   // Prefetch official PDF in background for instant download
   useEffect(() => {
-    fetch('/Mohamed_Abdulla_Verfication.pdf')
+    fetch('/sample_document.pdf')
       .then((res) => res.arrayBuffer())
       .then((buf) => {
         rawPdfBufferRef.current = buf;
@@ -241,8 +241,8 @@ export default function App() {
               setImageSrc(meta.pages[0]);
               setFitMode('page');
               setDocumentMeta({
-                title: meta.title || 'شهادة براءة ذمة - مصرف أبوظبي الإسلامي',
-                fileName: meta.fileName || 'ADIB_No_Liability_Certificate.pdf',
+                title: meta.title || 'وثيقة تحقق تجريبية / Sample Verification Document',
+                fileName: meta.fileName || 'sample_document.png',
                 originalPdf: meta.originalPdf,
                 currentQrUrl: meta.currentQrUrl,
               });
@@ -306,10 +306,10 @@ export default function App() {
       if (pdfParam) {
         setImageSrc(null);
         setFitMode('page');
-        loadPdf(pdfParam, pdfParam.split('/').pop() || 'ADIB_No_Liability_Certificate.pdf');
+        loadPdf(pdfParam, pdfParam.split('/').pop() || 'sample_document.pdf');
       } else {
-        setImageSrc('/44.jpg');
-        setDocumentPages(['/44.jpg']);
+        setImageSrc('/sample_document.png');
+        setDocumentPages(['/sample_document.png']);
         setFitMode('page');
         setIsLoading(false);
       }
@@ -522,19 +522,19 @@ export default function App() {
     await clearCustomImage();
     setIsCustomFileLoaded(false);
     setPdfDoc(null);
-    setImageSrc('/44.jpg');
-    setDocumentPages(['/44.jpg']);
+    setImageSrc('/sample_document.png');
+    setDocumentPages(['/sample_document.png']);
     setCurrentPage(1);
     setTotalPages(1);
     setScale(1.0);
     setFitMode('page');
     setDocumentMeta({
-      title: 'شهادة براءة ذمة - مصرف أبوظبي الإسلامي.pdf',
-      fileName: 'ADIB_No_Liability_Certificate.pdf',
-      author: 'Abu Dhabi Islamic Bank',
-      subject: 'No Liability Certificate',
-      creator: 'ADIB Core Banking',
-      producer: 'ADIB Document Vault',
+      title: 'وثيقة تحقق تجريبية / Sample Verification Document',
+      fileName: 'sample_document.pdf',
+      author: 'Document Verification System',
+      subject: 'Sample Verification Document',
+      creator: 'Document Viewer Core',
+      producer: 'Secure Document Vault',
     });
     setIsLoading(false);
     setError(null);
@@ -594,21 +594,21 @@ export default function App() {
         setToastMessage(lang === 'ar' ? 'جاري تجهيز المستند وتحميله بصيغة PDF...' : 'Preparing PDF download...');
         
         // If default official certificate image
-        if (imageSrc === '/44.jpg') {
+        if (imageSrc === '/sample_document.png' || imageSrc === '/44.jpg') {
           try {
-            const res = await fetch('/Mohamed_Abdulla_Verfication.pdf');
+            const res = await fetch('/sample_document.pdf');
             if (res.ok) {
               const buffer = await res.arrayBuffer();
               const blob = new Blob([buffer], { type: 'application/pdf' });
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = url;
-              a.download = 'ADIB_No_Liability_Certificate.pdf';
+              a.download = 'sample_document.pdf';
               document.body.appendChild(a);
               a.click();
               document.body.removeChild(a);
               setTimeout(() => URL.revokeObjectURL(url), 3000);
-              setToastMessage(lang === 'ar' ? 'تم تحميل الشهادة بصيغة PDF بنجاح' : 'Certificate PDF downloaded successfully');
+              setToastMessage(lang === 'ar' ? 'تم تحميل الوثيقة بصيغة PDF بنجاح' : 'Document PDF downloaded successfully');
               return;
             }
           } catch {
@@ -617,7 +617,7 @@ export default function App() {
         }
 
         // Universal high-quality image-to-PDF generation
-        await downloadImageAsPdf(imageSrc, documentMeta.fileName || 'ADIB_No_Liability_Certificate.pdf', documentMeta.title);
+        await downloadImageAsPdf(imageSrc, documentMeta.fileName || 'sample_document.pdf', documentMeta.title);
         setToastMessage(lang === 'ar' ? 'تم تحميل المستند بصيغة PDF بنجاح' : 'Document PDF downloaded successfully');
         return;
       } catch (err) {
@@ -630,7 +630,7 @@ export default function App() {
     try {
       let buffer = rawPdfBufferRef.current;
       if (!buffer) {
-        const res = await fetch('/Mohamed_Abdulla_Verfication.pdf');
+        const res = await fetch('/sample_document.pdf');
         buffer = await res.arrayBuffer();
         rawPdfBufferRef.current = buffer;
       }
@@ -638,7 +638,7 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = documentMeta.fileName || 'ADIB_No_Liability_Certificate.pdf';
+      a.download = documentMeta.fileName || 'sample_document.pdf';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -646,8 +646,8 @@ export default function App() {
       setToastMessage(lang === 'ar' ? 'تم تحميل ملف PDF بنجاح' : 'PDF downloaded successfully');
     } catch {
       const a = document.createElement('a');
-      a.href = '/adib_certificate.pdf';
-      a.download = documentMeta.fileName || 'ADIB_No_Liability_Certificate.pdf';
+      a.href = '/sample_document.pdf';
+      a.download = documentMeta.fileName || 'sample_document.pdf';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -717,9 +717,9 @@ export default function App() {
               if (imageSrc) {
                 setImageSrc(null);
                 setFitMode('page');
-                loadPdf('/Mohamed_Abdulla_Verfication.pdf');
+                loadPdf('/sample_document.pdf');
               } else {
-                setImageSrc('/44.jpg');
+                setImageSrc('/sample_document.png');
                 setFitMode('page');
               }
             }}
@@ -801,7 +801,7 @@ export default function App() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => {
-                  setImageSrc('/44.jpg');
+                  setImageSrc('/sample_document.png');
                   setError(null);
                 }}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#003865] hover:bg-[#002b49] text-white text-xs font-semibold shadow transition cursor-pointer"
@@ -914,10 +914,10 @@ export default function App() {
         isOpen={isFontFidelityModalOpen}
         onClose={() => setIsFontFidelityModalOpen(false)}
         lang={lang}
-        onSelectExactView={() => setImageSrc('/44.jpg')}
+        onSelectExactView={() => setImageSrc('/sample_document.png')}
         onSelectVectorPdf={() => {
           setImageSrc(null);
-          loadPdf('/adib_certificate.pdf');
+          loadPdf('/sample_document.pdf');
         }}
         isExactViewActive={Boolean(imageSrc)}
       />
