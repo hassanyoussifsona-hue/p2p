@@ -1,7 +1,18 @@
 // IndexedDB + LocalStorage dual storage for persisting custom uploaded files across sessions
 
+export interface StoredImage {
+  id: string;
+  fileName: string;
+  dataUrl: string;
+  savedAt: number;
+  width?: number;
+  height?: number;
+  fileSize?: number;
+}
+
 const DB_NAME = 'RemixPdfViewerDB';
 const STORE_NAME = 'custom_pdf_store';
+const IMAGES_STORE = 'images_database_store';
 const KEY = 'active_pdf_document';
 const IMAGE_KEY = 'active_custom_image';
 
@@ -10,16 +21,81 @@ function openDB(): Promise<IDBDatabase> {
     if (typeof window === 'undefined' || !window.indexedDB) {
       return reject(new Error('IndexedDB not supported'));
     }
-    const request = indexedDB.open(DB_NAME, 2);
+    const request = indexedDB.open(DB_NAME, 3);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME);
       }
+      if (!db.objectStoreNames.contains(IMAGES_STORE)) {
+        db.createObjectStore(IMAGES_STORE, { keyPath: 'id' });
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
+}
+
+export async function addImageToDatabase(file: {
+  fileName: string;
+  dataUrl: string;
+  width?: number;
+  height?: number;
+  fileSize?: number;
+}): Promise<StoredImage> {
+  const db = await openDB();
+  const id = 'img_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+  const record: StoredImage = {
+    id,
+    fileName: file.fileName,
+    dataUrl: file.dataUrl,
+    savedAt: Date.now(),
+    width: file.width,
+    height: file.height,
+    fileSize: file.fileSize,
+  };
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(IMAGES_STORE, 'readwrite');
+    const store = tx.objectStore(IMAGES_STORE);
+    const req = store.put(record);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+  return record;
+}
+
+export async function getAllImagesFromDatabase(): Promise<StoredImage[]> {
+  try {
+    const db = await openDB();
+    return await new Promise<StoredImage[]>((resolve) => {
+      const tx = db.transaction(IMAGES_STORE, 'readonly');
+      const store = tx.objectStore(IMAGES_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const list: StoredImage[] = req.result || [];
+        list.sort((a, b) => b.savedAt - a.savedAt);
+        resolve(list);
+      };
+      req.onerror = () => resolve([]);
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteImageFromDatabase(id: string): Promise<void> {
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(IMAGES_STORE, 'readwrite');
+      const store = tx.objectStore(IMAGES_STORE);
+      const req = store.delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('Could not delete image:', err);
+  }
 }
 
 export async function saveCustomPdf(fileName: string, buffer: ArrayBuffer): Promise<void> {

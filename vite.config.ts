@@ -48,13 +48,13 @@ function documentApiPlugin(): Plugin {
           }
           return res.end(
             JSON.stringify({
-              isDefault: true,
-              fileName: 'sample_document.png',
-              title: 'وثيقة تحقق تجريبية / Sample Verification Document',
-              fileType: 'image',
-              totalPages: 1,
-              pages: ['/sample_document.png'],
-              originalPdf: '/sample_document.pdf',
+              isDefault: false,
+              hasDocument: false,
+              fileName: '',
+              title: '',
+              fileType: '',
+              totalPages: 0,
+              pages: [],
               updatedAt: Date.now(),
             })
           );
@@ -233,13 +233,13 @@ function documentApiPlugin(): Plugin {
         if (req.url?.startsWith('/api/reset-document') && req.method === 'POST') {
           const publicDir = path.resolve(__dirname, 'public');
           const meta = {
-            isDefault: true,
-            fileName: 'sample_document.png',
-            title: 'وثيقة تحقق تجريبية / Sample Verification Document',
-            fileType: 'image',
-            totalPages: 1,
-            pages: ['/sample_document.png'],
-            originalPdf: '/sample_document.pdf',
+            isDefault: false,
+            hasDocument: false,
+            fileName: '',
+            title: '',
+            fileType: '',
+            totalPages: 0,
+            pages: [],
             updatedAt: Date.now(),
           };
           fs.writeFileSync(path.join(publicDir, 'document_meta.json'), JSON.stringify(meta, null, 2));

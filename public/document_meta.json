@@ -1,12 +1,10 @@
 {
-  "isDefault": true,
-  "fileName": "sample_document.png",
-  "title": "وثيقة تحقق تجريبية / Sample Verification Document",
-  "fileType": "image",
-  "totalPages": 1,
-  "pages": [
-    "/sample_document.png"
-  ],
-  "originalPdf": "/sample_document.pdf",
-  "updatedAt": 1790960589162
+  "isDefault": false,
+  "hasDocument": false,
+  "fileName": "",
+  "title": "",
+  "fileType": "",
+  "totalPages": 0,
+  "pages": [],
+  "updatedAt": 1791044849191
 }

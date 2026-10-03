@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist';
-import { ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Loader2, UploadCloud, FileUp, ShieldCheck } from 'lucide-react';
 import { FitMode } from '../types';
 
 interface PdfCanvasProps {
@@ -261,6 +261,50 @@ export const PdfCanvas: React.FC<PdfCanvasProps> = ({
   const handleTouchEnd = () => {
     touchStartDistRef.current = null;
   };
+
+  if (!imageSrc && !pdfDoc) {
+    return (
+      <main
+        ref={containerRef}
+        id="pdf-canvas-wrapper"
+        className="relative flex-1 w-full h-full overflow-auto flex items-center justify-center p-4 bg-neutral-950/90 select-none focus:outline-none"
+      >
+        <div className="max-w-md w-full p-8 rounded-2xl bg-neutral-900/90 border border-neutral-800 shadow-2xl text-center flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-16 h-16 rounded-2xl bg-[#003865]/40 border border-[#c5a059]/40 flex items-center justify-center text-[#c5a059] mb-4 shadow-inner">
+            <UploadCloud className="w-8 h-8 animate-pulse text-[#c5a059]" />
+          </div>
+
+          <h2 className="text-lg sm:text-xl font-bold text-white mb-2">
+            لا يوجد مستند مفتوح حالياً
+          </h2>
+          <p className="text-xs text-neutral-400 mb-6 leading-relaxed">
+            تم إيقاف الفتح التلقائي وإزالة الصورة الافتراضية. يمكنك اختيار أو سحب وإفلات أي ملف (صورة أو PDF) لتجربته، وسيتم فتحه تلقائياً بعد فحص التحقق لمدة 7 ثوانٍ.
+          </p>
+
+          <button
+            type="button"
+            id="btn-empty-state-upload"
+            onClick={onUploadImageClick}
+            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs sm:text-sm shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-105 active:scale-95 mb-6"
+          >
+            <FileUp className="w-4 h-4" />
+            <span>اختيار ملف أو صورة للتجربة</span>
+          </button>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-[11px] text-neutral-400 text-right">
+            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-neutral-950/60 border border-neutral-800/80">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>فحص أمني لمدة 7 ثوانٍ قبل فتح الملف</span>
+            </div>
+            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-neutral-950/60 border border-neutral-800/80">
+              <UploadCloud className="w-4 h-4 text-blue-400 shrink-0" />
+              <span>إمكانية تبديل وتجربة أي ملف آخر</span>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main

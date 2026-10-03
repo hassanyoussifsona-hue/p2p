@@ -15,6 +15,7 @@ import { BotVerificationGate } from './components/BotVerificationGate';
 import { AdibFooter } from './components/AdibFooter';
 import { DocumentMeta, FitMode, ViewMode, Language, VerificationDetails } from './types';
 import { downloadImageAsPdf } from './lib/pdfExport';
+import { CenterImageViewer } from './components/CenterImageViewer';
 import {
   saveCustomPdf,
   getCustomPdf,
@@ -22,6 +23,10 @@ import {
   saveCustomImage,
   getCustomImage,
   clearCustomImage,
+  StoredImage,
+  addImageToDatabase,
+  getAllImagesFromDatabase,
+  deleteImageFromDatabase,
 } from './lib/pdfStorage';
 import { FileUp, AlertCircle, RefreshCw, BookOpen, ShieldCheck, CheckCircle2, SlidersHorizontal, Eye } from 'lucide-react';
 
@@ -35,12 +40,22 @@ export default function App() {
   const [fitMode, setFitMode] = useState<FitMode>('page');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [imageSrc, setImageSrc] = useState<string | null>('/sample_document.png');
-  const [documentPages, setDocumentPages] = useState<string[]>(['/sample_document.png']);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [documentPages, setDocumentPages] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Verification & pending file loading states
+  const [isBotVerified, setIsBotVerified] = useState(false);
+  const [isVerifyingDocument, setIsVerifyingDocument] = useState(false);
+  const [verifyingDocName, setVerifyingDocName] = useState<string | undefined>(undefined);
+  const [pendingFileAction, setPendingFileAction] = useState<(() => void) | null>(null);
+
+  // Database Images State for Center Image Viewer
+  const [dbImages, setDbImages] = useState<StoredImage[]>([]);
+  const [selectedDbImage, setSelectedDbImage] = useState<StoredImage | null>(null);
 
   // Toolbar visibility: restored by default, with intuitive multi-mode toggle
   const [isToolbarVisible, setIsToolbarVisible] = useState(true);
@@ -53,10 +68,10 @@ export default function App() {
     refNumber: 'DOC-VERIFY-2026-9482',
     channel: 'Document Verification System (Online)',
     issueDate: '01 October 2026',
-    documentType: 'وثيقة تحقق تجريبية / Sample Verification Document',
+    documentType: 'وثيقة تحقق / Verification Document',
     isValid: true,
-    securityHash: 'SERIAL: DOC-2026-9482 | REF: VERIFY-DEMO-SAMPLE',
-    customerRef: 'Test Sample User / مستخدم تجريبي',
+    securityHash: 'SERIAL: DOC-2026-9482 | REF: VERIFY-DEMO',
+    customerRef: 'Verified User',
   });
 
   // Modals
@@ -66,17 +81,16 @@ export default function App() {
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isFontFidelityModalOpen, setIsFontFidelityModalOpen] = useState(false);
   const [isCustomFileLoaded, setIsCustomFileLoaded] = useState(false);
-  const [isBotVerified, setIsBotVerified] = useState(false);
 
   // Document metadata & active raw data for downloading / printing
   const [currentQrUrl, setCurrentQrUrl] = useState<string>(
     'https://ais-dev-jjoiefkhngzukahhahyand-171172990740.europe-west2.run.app'
   );
   const [documentMeta, setDocumentMeta] = useState<DocumentMeta>({
-    title: 'وثيقة تحقق تجريبية / Sample Verification Document',
-    fileName: 'sample_document.png',
+    title: '',
+    fileName: '',
     author: 'Document Verification System',
-    subject: 'Sample Verification Document',
+    subject: 'Document Viewer',
     creator: 'Document Viewer Core',
     producer: 'Secure Document Vault',
     currentQrUrl: 'https://ais-dev-jjoiefkhngzukahhahyand-171172990740.europe-west2.run.app',
@@ -225,93 +239,81 @@ export default function App() {
     }
   }, [toastMessage]);
 
-  // Initial load: Checks server document meta, saved custom media, URL params, or default ADIB Certificate
+  // Initial load: load uploaded document (/uploaded_doc.png or from /api/document-meta)
   useEffect(() => {
     let isCancelled = false;
     (async () => {
-      // 1. Check server document meta (synchronizes across all devices, direct links, and QR scans)
       try {
-        const metaRes = await fetch('/api/document-meta', { cache: 'no-store' });
-        if (metaRes.ok) {
-          const meta = await metaRes.json();
-          if (meta && meta.pages && meta.pages.length > 0) {
-            if (!isCancelled) {
-              setDocumentPages(meta.pages);
-              setTotalPages(meta.totalPages || meta.pages.length);
-              setImageSrc(meta.pages[0]);
-              setFitMode('page');
-              setDocumentMeta({
-                title: meta.title || 'وثيقة تحقق تجريبية / Sample Verification Document',
-                fileName: meta.fileName || 'sample_document.png',
-                originalPdf: meta.originalPdf,
-                currentQrUrl: meta.currentQrUrl,
-              });
-              if (meta.currentQrUrl) {
-                setCurrentQrUrl(meta.currentQrUrl);
-              }
-              if (!meta.isDefault) {
-                setIsCustomFileLoaded(true);
-              }
-              setIsLoading(false);
-              return;
-            }
+        // 1. Check server document meta
+        const res = await fetch('/api/document-meta', { cache: 'no-store' });
+        if (res.ok) {
+          const meta = await res.json();
+          if (!isCancelled && meta && meta.pages && meta.pages.length > 0) {
+            const mainImg = meta.pages[0];
+            setImageSrc(mainImg);
+            setDocumentPages(meta.pages);
+            setTotalPages(meta.totalPages || meta.pages.length || 1);
+            setCurrentPage(1);
+            setIsCustomFileLoaded(true);
+            setVerifyingDocName(meta.fileName || '04-10.png');
+            setDocumentMeta((prev) => ({
+              ...prev,
+              title: meta.title || meta.fileName || '04-10',
+              fileName: meta.fileName || '04-10.png',
+              originalPdf: meta.originalPdf,
+            }));
+            return;
           }
         }
-      } catch (e) {
-        console.warn('Could not fetch server document meta, checking local storage:', e);
+      } catch (metaErr) {
+        console.warn('Could not fetch server document meta:', metaErr);
       }
 
-      // 2. Fallback to client IndexedDB if offline
+      // 2. Check local database / IndexedDB stored images
       try {
-        const [customImg, customPdf] = await Promise.all([
-          getCustomImage(),
-          getCustomPdf(),
-        ]);
-
-        if (isCancelled) return;
-
-        const imgTime = customImg?.savedAt || 0;
-        const pdfTime = customPdf?.savedAt || 0;
-
-        // If a file was saved/uploaded, load it as default and fit to page
-        if (customImg && (!customPdf || imgTime >= pdfTime)) {
+        const stored = await getAllImagesFromDatabase();
+        if (!isCancelled && stored && stored.length > 0) {
+          setDbImages(stored);
+          setSelectedDbImage(stored[0]);
+          setImageSrc(stored[0].dataUrl);
+          setDocumentPages([stored[0].dataUrl]);
+          setTotalPages(1);
+          setCurrentPage(1);
+          setVerifyingDocName(stored[0].fileName);
           setIsCustomFileLoaded(true);
-          setPdfDoc(null);
-          setImageSrc(customImg.dataUrl);
-          setDocumentPages([customImg.dataUrl]);
-          setFitMode('page');
-          setDocumentMeta({
-            title: customImg.fileName || 'custom_image.jpg',
-            fileName: customImg.fileName || 'custom_image.jpg',
-            author: 'Abu Dhabi Islamic Bank',
-            subject: 'Custom Document Image',
-            creator: 'ADIB Document Viewer',
-          });
-          setIsLoading(false);
-          return;
-        } else if (customPdf && customPdf.buffer) {
-          setIsCustomFileLoaded(true);
-          setFitMode('page');
-          await loadPdf(customPdf.buffer, customPdf.fileName);
+          setDocumentMeta((prev) => ({
+            ...prev,
+            title: stored[0].fileName,
+            fileName: stored[0].fileName,
+          }));
           return;
         }
       } catch (err) {
-        console.warn('Could not read saved custom media:', err);
+        console.warn('Could not read images from database:', err);
       }
 
-      if (isCancelled) return;
+      // 3. Fallback to /uploaded_doc.png as the default uploaded image
+      if (!isCancelled) {
+        setImageSrc('/uploaded_doc.png');
+        setDocumentPages(['/uploaded_doc.png']);
+        setTotalPages(1);
+        setCurrentPage(1);
+        setVerifyingDocName('04-10.png');
+        setIsCustomFileLoaded(true);
+        setDocumentMeta((prev) => ({
+          ...prev,
+          title: '04-10',
+          fileName: '04-10.png',
+        }));
+      }
+
       const urlParams = new URLSearchParams(window.location.search);
       const pdfParam = urlParams.get('pdf') || urlParams.get('file');
 
       if (pdfParam) {
         setImageSrc(null);
         setFitMode('page');
-        loadPdf(pdfParam, pdfParam.split('/').pop() || 'sample_document.pdf');
-      } else {
-        setImageSrc('/sample_document.png');
-        setDocumentPages(['/sample_document.png']);
-        setFitMode('page');
-        setIsLoading(false);
+        loadPdf(pdfParam, pdfParam.split('/').pop() || 'document.pdf');
       }
     })();
 
@@ -401,8 +403,8 @@ export default function App() {
     }
   };
 
-  // Main file selector: processes any image or PDF immediately with 100% fidelity
-  const handleFileSelect = (file: File) => {
+  // Actually process and render chosen file into the viewer
+  const actuallyProcessFile = useCallback(async (file: File) => {
     setIsLoading(true);
     setError(null);
 
@@ -417,7 +419,7 @@ export default function App() {
         return;
       }
 
-      // If it's an image, immediately show it for instant visual response
+      // If it's an image, render directly
       if (isImage) {
         setPdfDoc(null);
         setImageSrc(dataUrl);
@@ -430,18 +432,17 @@ export default function App() {
         setDocumentMeta({
           title: file.name,
           fileName: file.name,
-          author: 'مصرف أبوظبي الإسلامي - ADIB',
-          subject: 'وثيقة رسمية / صورة مرفوعة',
-          creator: 'عارض مستندات ADIB',
-          producer: 'ADIB High Fidelity Viewer',
+          author: 'Document Verification System',
+          subject: 'Custom Document Image',
+          creator: 'Document Viewer Core',
+          producer: 'High Fidelity Viewer',
         });
 
-        // Save locally in IndexedDB as fallback
         await saveCustomImage(file.name, dataUrl);
         setIsCustomFileLoaded(true);
       }
 
-      // Synchronize with server to permanently persist as default document and rasterize with 100% font & signature accuracy
+      // Synchronize with server
       try {
         const res = await fetch('/api/upload-document', {
           method: 'POST',
@@ -471,17 +472,17 @@ export default function App() {
             setIsLoading(false);
             setToastMessage(
               lang === 'ar'
-                ? `تم تثبيت المستند "${file.name}" كافتراضي بنجاح وبدقة مطابقة 100% دون أي تغير في الخطوط أو التوقيع!`
-                : `Document "${file.name}" permanently saved as default with 100% fidelity!`
+                ? `تم فتح وتوثيق المستند "${file.name}" بنجاح!`
+                : `Document "${file.name}" verified and opened successfully!`
             );
             return;
           }
         }
       } catch (uploadErr) {
-        console.warn('Server upload fallback to local browser storage:', uploadErr);
+        console.warn('Server upload fallback:', uploadErr);
       }
 
-      // If server upload failed and it's a PDF, fallback to client-side pdfjs
+      // PDF handling
       if (isPdf) {
         try {
           const base64Data = dataUrl.split(',')[1];
@@ -502,6 +503,11 @@ export default function App() {
       }
 
       setIsLoading(false);
+      setToastMessage(
+        lang === 'ar'
+          ? `تم فتح المستند "${file.name}" بنجاح!`
+          : `Document "${file.name}" opened successfully!`
+      );
     };
 
     reader.onerror = () => {
@@ -510,35 +516,121 @@ export default function App() {
     };
 
     reader.readAsDataURL(file);
+  }, [lang, loadPdf]);
+
+  // Main file selector: triggers 7-second verification countdown, then opens the file!
+  const handleFileSelect = (file: File) => {
+    setVerifyingDocName(file.name);
+    setIsVerifyingDocument(true);
+    setIsBotVerified(false);
+    setPendingFileAction(() => () => {
+      actuallyProcessFile(file);
+    });
   };
 
-  const handleResetDefault = async () => {
-    try {
-      await fetch('/api/reset-document', { method: 'POST' });
-    } catch (e) {
-      console.warn('Could not reset server document', e);
+  const handleVerified = () => {
+    setIsBotVerified(true);
+    setIsVerifyingDocument(false);
+    if (pendingFileAction) {
+      pendingFileAction();
+      setPendingFileAction(null);
     }
-    await clearCustomPdf();
-    await clearCustomImage();
-    setIsCustomFileLoaded(false);
+  };
+
+  const handleCloseDocument = async () => {
+    setImageSrc(null);
     setPdfDoc(null);
-    setImageSrc('/sample_document.png');
-    setDocumentPages(['/sample_document.png']);
+    setDocumentPages([]);
     setCurrentPage(1);
     setTotalPages(1);
-    setScale(1.0);
-    setFitMode('page');
+    setIsCustomFileLoaded(false);
     setDocumentMeta({
-      title: 'وثيقة تحقق تجريبية / Sample Verification Document',
-      fileName: 'sample_document.pdf',
+      title: '',
+      fileName: '',
       author: 'Document Verification System',
-      subject: 'Sample Verification Document',
+      subject: 'Document Viewer',
       creator: 'Document Viewer Core',
       producer: 'Secure Document Vault',
     });
-    setIsLoading(false);
-    setError(null);
-    setToastMessage(lang === 'ar' ? 'تمت استعادة الوثيقة الافتراضية بنجاح' : 'Default document restored');
+    await clearCustomPdf();
+    await clearCustomImage();
+    try {
+      await fetch('/api/reset-document', { method: 'POST' });
+    } catch {}
+    setToastMessage(lang === 'ar' ? 'تمت إزالة المستند بنجاح' : 'Document closed successfully');
+  };
+
+  const handleUploadImageToDb = useCallback(async (file: File) => {
+    const isImage = file.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|svg|bmp|ico)$/i.test(file.name);
+    if (!isImage) {
+      handleFileSelect(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target?.result as string;
+      if (!dataUrl) return;
+
+      const record = await addImageToDatabase({
+        fileName: file.name,
+        dataUrl,
+        fileSize: file.size,
+      });
+
+      setDbImages((prev) => [record, ...prev.filter((img) => img.id !== record.id)]);
+      setSelectedDbImage(record);
+      setImageSrc(record.dataUrl);
+      setDocumentPages([record.dataUrl]);
+      setPdfDoc(null);
+      setDocumentMeta({
+        title: record.fileName,
+        fileName: record.fileName,
+        author: 'Database Image Store',
+        subject: 'Custom Image',
+        creator: 'Center Image Viewer',
+        producer: 'Database Storage',
+      });
+      setToastMessage(
+        lang === 'ar'
+          ? `تم رفع وحفظ "${file.name}" في قاعدة البيانات وعرضها في المنتصف بنجاح!`
+          : `Image "${file.name}" saved to database and displayed in center!`
+      );
+    };
+    reader.readAsDataURL(file);
+  }, [lang]);
+
+  const handleDeleteImageFromDb = useCallback(async (id: string) => {
+    await deleteImageFromDatabase(id);
+    setDbImages((prev) => {
+      const next = prev.filter((img) => img.id !== id);
+      const nextSelected = next[0] || null;
+      setSelectedDbImage(nextSelected);
+      setImageSrc(nextSelected ? nextSelected.dataUrl : null);
+      setDocumentPages(nextSelected ? [nextSelected.dataUrl] : []);
+      setDocumentMeta({
+        title: nextSelected?.fileName || '',
+        fileName: nextSelected?.fileName || '',
+        author: 'Database Image Store',
+        subject: 'Custom Image',
+        creator: 'Center Image Viewer',
+        producer: 'Database Storage',
+      });
+      return next;
+    });
+    setToastMessage(lang === 'ar' ? 'تم حذف الصورة من قاعدة البيانات' : 'Image deleted from database');
+  }, [lang]);
+
+  const handleRerunVerification = () => {
+    if (!imageSrc && !pdfDoc) return;
+    setIsVerifyingDocument(true);
+    setIsBotVerified(false);
+    setVerifyingDocName(documentMeta.fileName || documentMeta.title || 'Document');
+    setPendingFileAction(null);
+  };
+
+  const handleResetDefault = async () => {
+    await handleCloseDocument();
   };
 
   const handleToggleFullscreen = () => {
@@ -724,10 +816,13 @@ export default function App() {
               }
             }}
             isExactViewActive={Boolean(imageSrc)}
-            onUploadFile={handleFileSelect}
+            onUploadFile={handleUploadImageToDb}
             isCustomFileLoaded={isCustomFileLoaded}
             onResetDefault={handleResetDefault}
             onHideToolbar={handleToggleToolbar}
+            hasDocument={Boolean(selectedDbImage || imageSrc || pdfDoc)}
+            onRerunVerification={handleRerunVerification}
+            onCloseDocument={handleCloseDocument}
           />
         </div>
       )}
@@ -801,7 +896,6 @@ export default function App() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => {
-                  setImageSrc('/sample_document.png');
                   setError(null);
                 }}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#003865] hover:bg-[#002b49] text-white text-xs font-semibold shadow transition cursor-pointer"
@@ -811,11 +905,11 @@ export default function App() {
               </button>
             </div>
           </div>
-        ) : viewMode === 'single' ? (
+        ) : (viewMode === 'single' || !pdfDoc) ? (
           <PdfCanvas
             pdfDoc={pdfDoc}
             imageSrc={(documentPages && documentPages[currentPage - 1]) ? documentPages[currentPage - 1] : imageSrc}
-            imageName={documentMeta.title}
+            imageName={documentMeta.title || documentMeta.fileName || '04-10.png'}
             currentPage={currentPage}
             scale={scale}
             rotation={rotation}
@@ -864,12 +958,12 @@ export default function App() {
             <FileUp className="w-12 h-12 animate-bounce" />
           </div>
           <h3 className="text-xl font-bold text-white mb-2">
-            {lang === 'ar' ? 'أفلت أي صورة هنا لعرضها تلقائياً في المنتصف!' : 'Drop any image here to display automatically in center!'}
+            {lang === 'ar' ? 'أفلت أي صورة أو ملف هنا لتغيير وتحديث المستند!' : 'Drop any image or file here to change the document!'}
           </h3>
           <p className="text-xs text-slate-300 max-w-md">
             {lang === 'ar'
-              ? 'سيتم عرض الصورة فوراً في منتصف الصفحة بدون أي خطوات مع إمكانية التكبير والفتح في نافذة منبثقة'
-              : 'The image will be displayed automatically in the center with zoom and popup window view'}
+              ? 'سيتم فحص وتحديث المستند بالصورة الجديدة وحفظها تلقائياً للمعاينة في المنتصف'
+              : 'The document will be verified, updated and saved with the new image for center viewing'}
           </p>
         </div>
       )}
@@ -922,11 +1016,13 @@ export default function App() {
         isExactViewActive={Boolean(imageSrc)}
       />
 
-      {/* Security Robot Verification Gate (5s auto-check) */}
+      {/* Security Verification Gate (7s auto-check) */}
       {!isBotVerified && (
         <BotVerificationGate
           lang={lang}
-          onVerified={() => setIsBotVerified(true)}
+          onVerified={handleVerified}
+          documentName={verifyingDocName}
+          isDocumentVerification={isVerifyingDocument}
         />
       )}
     </div>

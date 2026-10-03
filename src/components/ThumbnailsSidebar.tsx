@@ -197,6 +197,12 @@ export const ThumbnailsSidebar: React.FC<ThumbnailsSidebarProps> = ({
         id="thumbnails-scroll-container"
         className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3"
       >
+        {!pdfDoc && !imageSrc && (
+          <div className="text-center py-8 text-neutral-500 text-xs">
+            لا يوجد مستند مفتوح حالياً
+          </div>
+        )}
+
         {(pdfDoc || imageSrc) &&
           pageNumbers.map((pNum) => (
             <div

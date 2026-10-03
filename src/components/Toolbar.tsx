@@ -23,6 +23,7 @@ import {
   FileSignature,
   Sparkles,
   EyeOff,
+  ShieldCheck,
 } from 'lucide-react';
 import { FitMode, ViewMode, Language } from '../types';
 
@@ -55,6 +56,9 @@ interface ToolbarProps {
   isCustomFileLoaded?: boolean;
   onResetDefault?: () => void;
   onHideToolbar?: () => void;
+  hasDocument?: boolean;
+  onRerunVerification?: () => void;
+  onCloseDocument?: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -85,6 +89,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   isCustomFileLoaded,
   onResetDefault,
   onHideToolbar,
+  hasDocument = false,
+  onRerunVerification,
+  onCloseDocument,
 }) => {
   const isAr = lang === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -311,22 +318,44 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <button
             id="btn-upload-image-toolbar"
             onClick={() => fileInputRef.current?.click()}
-            className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition flex items-center gap-1.5 shadow-sm cursor-pointer"
-            title={isAr ? 'رفع صورة جديدة لعرضها تلقائياً في المنتصف' : 'Upload image to display automatically in center'}
+            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs transition flex items-center gap-1.5 shadow-md shadow-emerald-950/40 cursor-pointer border border-emerald-400/30 hover:scale-105 active:scale-95"
+            title={isAr ? 'تغيير الصورة أو رفع صورة أخرى للتجربة' : 'Change image or upload another file'}
           >
-            <ImagePlus className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">{isAr ? 'رفع صورة' : 'Upload Image'}</span>
+            <ImagePlus className="w-4 h-4 text-emerald-200" />
+            <span>
+              {hasDocument
+                ? isAr
+                  ? 'تغيير الصورة / رفع صورة أخرى'
+                  : 'Change / Upload Another'
+                : isAr
+                ? 'رفع صورة للتجربة'
+                : 'Upload Image'}
+            </span>
           </button>
 
-          {/* Reset to default document button if custom loaded */}
-          {isCustomFileLoaded && onResetDefault && (
+          {/* Rerun 7-second verification button */}
+          {hasDocument && onRerunVerification && (
             <button
-              id="btn-reset-default-doc"
-              onClick={onResetDefault}
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 transition flex items-center justify-center cursor-pointer"
-              title={isAr ? 'استعادة المستند الافتراضي الأصلي' : 'Restore Default Document'}
+              id="btn-rerun-verification"
+              onClick={onRerunVerification}
+              className="px-2.5 py-1.5 rounded-lg bg-[#003865] hover:bg-[#002b49] text-emerald-300 border border-emerald-500/40 font-semibold text-xs transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              title={isAr ? 'إعادة تشغيل فحص التحقق الأمني لمدة 7 ثوانٍ' : 'Re-run 7-second security verification'}
             >
-              <RotateCcw className="w-4 h-4" />
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden md:inline">{isAr ? 'فحص التحقق (7 ثوانٍ)' : 'Verify (7s)'}</span>
+            </button>
+          )}
+
+          {/* Close / Remove current document */}
+          {hasDocument && onCloseDocument && (
+            <button
+              id="btn-close-doc"
+              onClick={onCloseDocument}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-rose-200 transition flex items-center gap-1 cursor-pointer border border-slate-700/60 text-xs"
+              title={isAr ? 'إغلاق وإزالة المستند الحالي' : 'Close and remove document'}
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">{isAr ? 'إغلاق المستند' : 'Close'}</span>
             </button>
           )}
 

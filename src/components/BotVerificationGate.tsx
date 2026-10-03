@@ -6,17 +6,28 @@ import { Language } from '../types';
 interface BotVerificationGateProps {
   lang: Language;
   onVerified: () => void;
+  documentName?: string;
+  isDocumentVerification?: boolean;
 }
 
-export const BotVerificationGate: React.FC<BotVerificationGateProps> = ({ lang, onVerified }) => {
-  const [secondsRemaining, setSecondsRemaining] = useState(5);
+export const BotVerificationGate: React.FC<BotVerificationGateProps> = ({
+  lang,
+  onVerified,
+  documentName,
+  isDocumentVerification = false,
+}) => {
+  const [secondsRemaining, setSecondsRemaining] = useState(7);
   const [isChecked, setIsChecked] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
 
   const isAr = lang === 'ar';
 
   useEffect(() => {
-    // 5-second countdown
+    // 7-second countdown as requested
+    setSecondsRemaining(7);
+    setIsChecked(false);
+    setIsCompleted(false);
+
     const interval = setInterval(() => {
       setSecondsRemaining((prev) => {
         if (prev <= 1) {
@@ -35,8 +46,8 @@ export const BotVerificationGate: React.FC<BotVerificationGateProps> = ({ lang, 
     return () => clearInterval(interval);
   }, [onVerified]);
 
-  // Calculate progress percentage over 5 seconds
-  const progressPercent = Math.min(100, Math.round(((5 - secondsRemaining) / 5) * 100));
+  // Calculate progress percentage over 7 seconds
+  const progressPercent = Math.min(100, Math.round(((7 - secondsRemaining) / 7) * 100));
 
   return (
     <AnimatePresence>
@@ -51,9 +62,9 @@ export const BotVerificationGate: React.FC<BotVerificationGateProps> = ({ lang, 
       >
         <div className="w-full max-w-md bg-neutral-900/90 border border-neutral-800 rounded-2xl p-6 sm:p-8 shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
           {/* Top subtle progress line */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-neutral-800">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-neutral-800">
             <motion.div
-              className="h-full bg-emerald-500"
+              className="h-full bg-gradient-to-r from-emerald-500 to-teal-400"
               initial={{ width: '0%' }}
               animate={{ width: `${progressPercent}%` }}
               transition={{ ease: 'linear', duration: 0.9 }}
@@ -65,23 +76,35 @@ export const BotVerificationGate: React.FC<BotVerificationGateProps> = ({ lang, 
             {isCompleted ? (
               <CheckCircle2 className="w-7 h-7 text-emerald-400 animate-in zoom-in-50 duration-300" />
             ) : (
-              <ShieldCheck className="w-7 h-7 text-emerald-400" />
+              <ShieldCheck className="w-7 h-7 text-emerald-400 animate-pulse" />
             )}
           </div>
 
           {/* Title */}
           <h2 className="text-lg sm:text-xl font-bold text-neutral-100 mb-2">
-            {isAr ? 'التحقق الأمني من المتصفح' : 'Security Browser Verification'}
+            {isDocumentVerification
+              ? isAr
+                ? 'التحقق الأمني من المستند'
+                : 'Document Security Verification'
+              : isAr
+              ? 'فحص الأمان والتحقق الأمني'
+              : 'Security Verification Check'}
           </h2>
+
+          {documentName && (
+            <div className="mb-3 px-3 py-1 rounded-full bg-neutral-800 border border-neutral-700 text-xs text-neutral-300 font-mono truncate max-w-xs">
+              {documentName}
+            </div>
+          )}
 
           <p className="text-xs sm:text-sm text-neutral-400 mb-6 leading-relaxed">
             {isCompleted
               ? isAr
-                ? 'تم التوثيق بنجاح! جاري توجيهك إلى المستند...'
-                : 'Verified successfully! Redirecting to the document...'
+                ? 'تم فحص التحقق بنجاح! جاري فتح المستند...'
+                : 'Verification successful! Opening document...'
               : isAr
-              ? 'الرجاء الانتظار للتحقق من أنك لست برنامج روبوت للوصول إلى الوثيقة الرسمية.'
-              : 'Please wait while we verify you are not a robot to access the official document.'}
+              ? 'الرجاء الانتظار 7 ثوانٍ لاستكمال الفحص الأمني وتوثيق فتح المستند.'
+              : 'Please wait 7 seconds while completing security verification to open the document.'}
           </p>
 
           {/* Verification Box (CAPTCHA Style) */}
@@ -90,7 +113,7 @@ export const BotVerificationGate: React.FC<BotVerificationGateProps> = ({ lang, 
               <div
                 className={`w-7 h-7 rounded-md border flex items-center justify-center transition-all ${
                   isChecked
-                    ? 'bg-emerald-600 border-emerald-500 text-white'
+                    ? 'bg-emerald-600 border-emerald-500 text-white shadow-sm shadow-emerald-500/50'
                     : 'bg-neutral-800/80 border-neutral-600'
                 }`}
               >
@@ -101,7 +124,7 @@ export const BotVerificationGate: React.FC<BotVerificationGateProps> = ({ lang, 
                 )}
               </div>
               <span className="text-sm font-medium text-neutral-200">
-                {isAr ? 'أنا لست برنامج روبوت' : "I'm not a robot"}
+                {isAr ? 'التحقق الأمني معتمد' : 'Security verified'}
               </span>
             </div>
 
@@ -116,15 +139,16 @@ export const BotVerificationGate: React.FC<BotVerificationGateProps> = ({ lang, 
             {!isCompleted ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-                <span>
+                <span className="font-mono">
                   {isAr
-                    ? `جاري التحقق التلقائي... (${secondsRemaining} ثوانٍ)`
-                    : `Verifying automatically... (${secondsRemaining}s)`}
+                    ? `جاري التحقق التلقائي... (${secondsRemaining} ثوانٍ متبقية)`
+                    : `Verifying automatically... (${secondsRemaining}s remaining)`}
                 </span>
               </>
             ) : (
-              <span className="text-emerald-400 font-medium">
-                {isAr ? '✓ تم التحقق بنجاح' : '✓ Verification complete'}
+              <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4" />
+                {isAr ? 'تم التحقق بنجاح - يفتح الملف الآن' : 'Verification complete - Opening file now'}
               </span>
             )}
           </div>
